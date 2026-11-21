@@ -1,1173 +1,1474 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rascademy — Concept-First Mathematics Company</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #080808;
-      --surface: #101010;
-      --paper: #F2EFE9;
-      --ink: #080808;
-      --white: #F5F3EE;
-      --muted: #8E8B84;
-      --ember: #FF4814;
-      --gold: #F5B841;
-      --line-dark: rgba(245, 243, 238, 0.14);
-      --line-light: rgba(8, 8, 8, 0.14);
-      --display: 'Bricolage Grotesque', sans-serif;
-      --editorial: 'Newsreader', Georgia, serif;
-      --mono: 'Space Mono', monospace;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; background: var(--bg); color: var(--white); }
-    body {
-      font-family: var(--display);
-      background: var(--bg);
-      color: var(--white);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* Film Grain & Tactile Depth */
-    .noise {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 900;
-      opacity: 0.04;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
-
-    /* Custom Magnetic Follower */
-    .cursor-ring {
-      position: fixed;
-      top: 0; left: 0;
-      width: 22px; height: 22px;
-      border: 1.5px solid var(--ember);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 950;
-      transform: translate(-50%, -50%);
-      transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), background 0.28s;
-      mix-blend-mode: difference;
-      display: none;
-    }
-    @media (hover: hover) and (pointer: fine) {
-      .cursor-ring { display: block; }
-    }
-    .cursor-ring.expand {
-      width: 68px; height: 68px;
-      background: rgba(255, 72, 20, 0.22);
-    }
-
-    /* Signature Smooth Flame & Logo Opening Curtain (PRD Sec. 8 & 28.1) */
-    #splash {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      background: #050505;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transition: clip-path 1.15s cubic-bezier(0.83, 0, 0.17, 1);
-      clip-path: inset(0 0 0 0);
-    }
-    #splash.done {
-      clip-path: inset(0 0 100% 0);
-      pointer-events: none;
-    }
-    #flameCanvas {
-      width: 240px;
-      height: 240px;
-      display: block;
-    }
-    .splash-caption {
-      margin-top: 12px;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    /* Floating Minimal Navigation (No generic sticky bar) */
-    .hud-top {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 120;
-      padding: 24px 36px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      pointer-events: none;
-      mix-blend-mode: difference;
-    }
-    .hud-brand {
-      pointer-events: auto;
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: #fff;
-      font-weight: 800;
-      font-size: 1.05rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .hud-brand svg {
-      width: 28px;
-      height: 28px;
-      fill: #fff;
-      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .hud-brand:hover svg { transform: rotate(-14deg) scale(1.1); }
-
-    .hud-menu {
-      pointer-events: auto;
-      display: flex;
-      gap: 28px;
-      align-items: center;
-    }
-    .hud-menu a, .hud-menu button {
-      background: none;
-      border: 0;
-      color: #fff;
-      text-decoration: none;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      cursor: pointer;
-      opacity: 0.78;
-      transition: opacity 0.2s;
-    }
-    .hud-menu a:hover, .hud-menu button:hover { opacity: 1; }
-
-    /* HERO: FULL-BLEED KINETIC LOGO SCULPTURE + MONUMENTAL TYPOGRAPHY */
-    .hero {
-      position: relative;
-      min-height: 100vh;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding: 120px 36px 44px;
-      overflow: hidden;
-      border-bottom: 1px solid var(--line-dark);
-    }
-    #heroField {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-    }
-    .hero-foreground {
-      position: relative;
-      z-index: 3;
-      pointer-events: none;
-    }
-    .hero-meta-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      color: var(--muted);
-      margin-bottom: 22px;
-      text-transform: uppercase;
-    }
-    .hero-title {
-      font-size: clamp(3.2rem, 8.6vw, 8.8rem);
-      font-weight: 800;
-      line-height: 0.89;
-      letter-spacing: -0.045em;
-      text-transform: uppercase;
-    }
-    .hero-title em {
-      font-family: var(--editorial);
-      font-weight: 400;
-      font-style: italic;
-      text-transform: none;
-      letter-spacing: -0.015em;
-      color: var(--ember);
-      font-size: 1.08em;
-    }
-    .hero-bottom {
-      margin-top: 38px;
-      padding-top: 24px;
-      border-top: 1px solid var(--line-dark);
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 24px;
-    }
-    .hero-statement {
-      max-width: 540px;
-      font-size: 1.06rem;
-      line-height: 1.6;
-      color: #C7C3BA;
-      font-weight: 400;
-    }
-    .hero-actions {
-      pointer-events: auto;
-      display: flex;
-      gap: 14px;
-      align-items: center;
-    }
-    .btn-ember {
-      background: var(--ember);
-      color: #fff;
-      border: 0;
-      padding: 15px 28px;
-      border-radius: 999px;
-      font-family: var(--mono);
-      font-size: 0.76rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      text-decoration: none;
-      cursor: pointer;
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s;
-    }
-    .btn-ember:hover { transform: scale(1.04); background: #ff5d2e; }
-    .btn-ghost {
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(8px);
-      color: var(--white);
-      border: 1px solid var(--line-dark);
-      padding: 15px 24px;
-      border-radius: 999px;
-      font-family: var(--mono);
-      font-size: 0.74rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: border-color 0.25s, background 0.25s;
-    }
-    .btn-ghost:hover { border-color: var(--white); background: rgba(255,255,255,0.12); }
-
-    /* SECTION II: HIGH-CONTRAST WARM PAPER EDITORIAL STATEMENT */
-    .paper-sheet {
-      background: var(--paper);
-      color: var(--ink);
-      padding: 110px 36px;
-      position: relative;
-    }
-    .section-tag {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #6B675E;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-    .section-tag::before {
-      content: "";
-      width: 28px; height: 1px;
-      background: var(--ember);
-    }
-    .editorial-lead {
-      font-family: var(--editorial);
-      font-size: clamp(2rem, 4.4vw, 4.1rem);
-      line-height: 1.12;
-      letter-spacing: -0.02em;
-      max-width: 1120px;
-      margin-bottom: 64px;
-    }
-    .editorial-lead span {
-      color: var(--ember);
-      font-style: italic;
-    }
-
-    /* Interactive Paradigm Slider (Noise vs Calm Concept-First) */
-    .contrast-stage {
-      border-top: 1px solid var(--line-light);
-      border-bottom: 1px solid var(--line-light);
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-    .contrast-half {
-      padding: 48px 36px 48px 0;
-    }
-    .contrast-half:last-child {
-      padding: 48px 0 48px 48px;
-      border-left: 1px solid var(--line-light);
-    }
-    .contrast-label {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin-bottom: 16px;
-      display: block;
-    }
-    .contrast-half h3 {
-      font-size: 1.75rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin-bottom: 14px;
-    }
-    .contrast-half p {
-      font-size: 1rem;
-      line-height: 1.68;
-      color: #4A4740;
-    }
-
-    /* SECTION III: INTERACTIVE PRODUCT EXHIBITION STAGE (5 CORE EXPERIENCES) */
-    .exhibition {
-      background: var(--bg);
-      color: var(--white);
-      padding: 110px 36px;
-      border-top: 1px solid var(--line-dark);
-    }
-    .exhibition-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 24px;
-      margin-bottom: 56px;
-    }
-    .exhibition-title {
-      font-size: clamp(2.4rem, 5.2vw, 4.8rem);
-      font-weight: 800;
-      line-height: 0.95;
-      letter-spacing: -0.04em;
-    }
-    .exhibition-title em {
-      font-family: var(--editorial);
-      font-weight: 400;
-      font-style: italic;
-      color: var(--gold);
-    }
-
-    /* Interactive Accordion-Filmstrip Selector (Bespoke Award Layout) */
-    .filmstrip {
-      display: flex;
-      gap: 14px;
-      min-height: 470px;
-    }
-    .reel-card {
-      flex: 1;
-      background: var(--surface);
-      border: 1px solid var(--line-dark);
-      border-radius: 24px;
-      padding: 28px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      cursor: pointer;
-      overflow: hidden;
-      position: relative;
-      transition: flex 0.65s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s, border-color 0.4s;
-    }
-    .reel-card:hover:not(.active) {
-      border-color: rgba(245, 243, 238, 0.38);
-    }
-    .reel-card.active {
-      flex: 4.2;
-      background: #141312;
-      border-color: var(--ember);
-      cursor: default;
-    }
-    .reel-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-    .reel-card.active .reel-top { color: var(--ember); }
-
-    .reel-collapsed-title {
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      font-size: 1.35rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: auto 0;
-      white-space: nowrap;
-      transition: opacity 0.25s;
-    }
-    .reel-card.active .reel-collapsed-title {
-      display: none;
-    }
-
-    .reel-expanded {
-      display: none;
-      height: 100%;
-      flex-direction: column;
-      justify-content: space-between;
-      padding-top: 24px;
-      animation: fadeSlide 0.5s ease forwards;
-    }
-    .reel-card.active .reel-expanded {
-      display: flex;
-    }
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .reel-expanded h3 {
-      font-size: clamp(1.8rem, 3vw, 2.75rem);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.05;
-      margin-bottom: 14px;
-    }
-    .reel-expanded p {
-      color: #C7C3BA;
-      font-size: 1rem;
-      line-height: 1.65;
-      max-width: 560px;
-    }
-    .reel-specs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 28px;
-      padding-top: 22px;
-      border-top: 1px solid var(--line-dark);
-    }
-    .reel-spec span {
-      display: block;
-      font-family: var(--mono);
-      font-size: 0.66rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 5px;
-    }
-    .reel-spec strong {
-      font-size: 0.92rem;
-      color: var(--white);
-    }
-
-    /* SECTION IV: GOVERNANCE, CALM ARCHITECTURE & ETHICS */
-    .charter {
-      background: var(--paper);
-      color: var(--ink);
-      padding: 110px 36px;
-    }
-    .charter-grid {
-      display: grid;
-      grid-template-columns: 0.85fr 1.15fr;
-      gap: 64px;
-      align-items: start;
-    }
-    .charter-sticky {
-      position: sticky;
-      top: 110px;
-    }
-    .charter-sticky h2 {
-      font-size: clamp(2.2rem, 4vw, 3.8rem);
-      font-weight: 800;
-      line-height: 0.98;
-      letter-spacing: -0.04em;
-      margin-bottom: 20px;
-    }
-    .charter-sticky h2 em {
-      font-family: var(--editorial);
-      font-weight: 400;
-      font-style: italic;
-      color: var(--ember);
-    }
-    .principle-item {
-      padding: 32px 0;
-      border-top: 1px solid var(--line-light);
-      display: grid;
-      grid-template-columns: 72px 1fr;
-      gap: 16px;
-    }
-    .principle-item:last-child { border-bottom: 1px solid var(--line-light); }
-    .principle-num {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--ember);
-      padding-top: 4px;
-    }
-    .principle-item h4 {
-      font-size: 1.3rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin-bottom: 8px;
-    }
-    .principle-item p {
-      font-size: 0.96rem;
-      line-height: 1.65;
-      color: #4A4740;
-    }
-
-    /* MONUMENTAL FOOTER WITH BRAND EMBLEM */
-    .footer {
-      background: #050505;
-      color: var(--white);
-      padding: 90px 36px 40px;
-      border-top: 1px solid var(--line-dark);
-      position: relative;
-      overflow: hidden;
-    }
-    .footer-top {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 36px;
-      padding-bottom: 64px;
-      border-bottom: 1px solid var(--line-dark);
-    }
-    .footer-emblem-box {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
-    .footer-emblem-box svg {
-      width: 68px;
-      height: 68px;
-      fill: var(--white);
-    }
-    .footer-wordmark {
-      font-size: clamp(2.6rem, 7vw, 6.4rem);
-      font-weight: 800;
-      letter-spacing: -0.05em;
-      line-height: 0.9;
-      text-transform: uppercase;
-    }
-    .footer-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .f-pill {
-      background: transparent;
-      color: var(--white);
-      border: 1px solid var(--line-dark);
-      padding: 12px 20px;
-      border-radius: 999px;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.25s;
-    }
-    .f-pill:hover {
-      background: var(--white);
-      color: var(--ink);
-    }
-    .footer-bottom {
-      padding-top: 28px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 12px;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 0.08em;
-    }
-
-    /* Document Drawer Modal */
-    .drawer {
-      position: fixed;
-      inset: 0;
-      z-index: 980;
-      background: rgba(5, 5, 5, 0.82);
-      backdrop-filter: blur(10px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .drawer.open { display: flex; }
-    .drawer-box {
-      background: var(--paper);
-      color: var(--ink);
-      border-radius: 24px;
-      max-width: 620px;
-      width: 100%;
-      max-height: 84vh;
-      overflow-y: auto;
-      padding: 36px;
-    }
-
-    @media (max-width: 960px) {
-      .hud-top { padding: 18px 20px; }
-      .hud-menu a { display: none; }
-      .hero, .paper-sheet, .exhibition, .charter, .footer { padding-left: 20px; padding-right: 20px; }
-      .contrast-stage, .charter-grid { grid-template-columns: 1fr; }
-      .contrast-half:last-child { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-light); }
-      .charter-sticky { position: static; margin-bottom: 36px; }
-      .filmstrip { flex-direction: column; min-height: auto; }
-      .reel-collapsed-title { writing-mode: horizontal-tb; transform: none; }
-      .reel-card.active { flex: 1; }
-      .reel-specs { grid-template-columns: 1fr; }
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rascademy — Concept-First Mathematics Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg: #070707;
+--paper: #F3EFE6;
+--ink: #0B0B0A;
+--white: #F7F4ED;
+--muted: #938F86;
+--ember: #FF4814;
+--gold: #F4B942;
+--line-dark: rgba(247, 244, 237, 0.14);
+--line-light: rgba(11, 11, 10, 0.14);
+--display: 'Bricolage Grotesque', sans-serif;
+--editorial: 'Newsreader', Georgia, serif;
+--mono: 'Space Mono', monospace;
+}
+​* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+width: 100%;
+height: 100%;
+overflow: hidden;
+background: var(--bg);
+color: var(--white);
+font-family: var(--display);
+-webkit-font-smoothing: antialiased;
+user-select: none;
+}
+​.noise {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 900;
+opacity: 0.03;
+background-image: radial-gradient(rgba(255,255,255,0.22) 1px, transparent 0);
+background-size: 3px 3px;
+}
+​.cursor-ring {
+position: fixed;
+top: 0; left: 0;
+width: 24px; height: 24px;
+border: 1.5px solid var(--ember);
+border-radius: 50%;
+pointer-events: none;
+z-index: 960;
+will-change: transform, width, height;
+transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), background 0.28s, border-color 0.28s;
+display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+.cursor-ring { display: block; }
+}
+.cursor-ring.expand {
+width: 68px; height: 68px;
+background: rgba(255, 72, 20, 0.16);
+border-color: var(--ember);
+}
+​/* Smooth Flame + Logo Opening Curtain */
+#splash {
+position: fixed;
+inset: 0;
+z-index: 1000;
+background: #050505;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+will-change: transform, opacity;
+transition: transform 0.95s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.75s ease;
+}
+#splash.done {
+transform: translate3d(0, -102%, 0);
+opacity: 0;
+pointer-events: none;
+}
+#flameCanvas {
+width: 240px;
+height: 240px;
+display: block;
+}
+.splash-caption {
+margin-top: 8px;
+font-family: var(--mono);
+font-size: 0.72rem;
+letter-spacing: 0.28em;
+text-transform: uppercase;
+color: var(--muted);
+}
+​/* Persistent Monumental Kinetic Emblem Field */
+#heroField {
+position: fixed;
+inset: 0;
+width: 100%;
+height: 100%;
+z-index: 1;
+pointer-events: none;
+will-change: transform;
+}
+​/* Cinematic Speed-Ramp Letterbox Bars */
+.cine-bar {
+position: fixed;
+left: 0;
+right: 0;
+height: 38px;
+background: #040404;
+z-index: 180;
+pointer-events: none;
+will-change: transform;
+}
+.cine-bar.top { top: 0; transform: translate3d(0, -100%, 0); }
+.cine-bar.bot { bottom: 0; transform: translate3d(0, 100%, 0); }
+​/* Top Safe-Zone Floating HUD */
+.hud-top {
+position: fixed;
+top: 0; left: 0; right: 0;
+height: 76px;
+z-index: 200;
+padding: 0 40px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+pointer-events: none;
+}
+.hud-brand {
+pointer-events: auto;
+display: inline-flex;
+align-items: center;
+gap: 12px;
+background: rgba(12, 12, 11, 0.72);
+border: 1px solid rgba(255, 255, 255, 0.14);
+padding: 8px 16px 8px 12px;
+border-radius: 999px;
+color: #F7F4ED;
+font-family: var(--display);
+font-weight: 800;
+font-size: 0.96rem;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+cursor: pointer;
+transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hud-brand svg {
+width: 24px;
+height: 24px;
+fill: #F7F4ED;
+transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hud-brand:hover svg { transform: rotate(-18deg) scale(1.12); }
+​.hud-nav {
+pointer-events: auto;
+display: flex;
+gap: 20px;
+align-items: center;
+background: rgba(12, 12, 11, 0.72);
+border: 1px solid rgba(255, 255, 255, 0.14);
+padding: 8px 20px;
+border-radius: 999px;
+}
+.hud-link {
+background: none;
+border: 0;
+color: #F7F4ED;
+font-family: var(--mono);
+font-size: 0.68rem;
+letter-spacing: 0.14em;
+text-transform: uppercase;
+cursor: pointer;
+opacity: 0.55;
+transition: opacity 0.25s, color 0.25s;
+padding: 4px 0;
+}
+.hud-link:hover, .hud-link.active { opacity: 1; color: var(--ember); }
+​/* CINEMA SPEED-RAMP SPATIAL STAGE */
+#viewport {
+position: fixed;
+inset: 0;
+z-index: 10;
+perspective: 2400px;
+transform-style: preserve-3d;
+overflow: hidden;
+touch-action: none;
+}
+​.scene {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+padding: calc(78px + env(safe-area-inset-top, 0px)) clamp(20px, 4.5vw, 56px) calc(88px + env(safe-area-inset-bottom, 0px));
+display: grid;
+place-items: center;
+will-change: transform, opacity, clip-path, filter;
+backface-visibility: hidden;
+-webkit-backface-visibility: hidden;
+pointer-events: none;
+opacity: 0;
+visibility: hidden;
+}
+.scene.is-current {
+pointer-events: auto;
+}
+​.scene-dark {
+background: transparent;
+color: var(--white);
+}
+.scene-paper {
+background: var(--paper);
+color: var(--ink);
+border-radius: 28px;
+inset: 78px clamp(16px, 3vw, 36px) 84px;
+width: auto;
+height: auto;
+padding: clamp(24px, 4vw, 52px);
+box-shadow: 0 28px 80px rgba(0, 0, 0, 0.72);
+}
+​.kicker {
+font-family: var(--mono);
+font-size: 0.7rem;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: var(--ember);
+margin-bottom: 12px;
+display: inline-flex;
+align-items: center;
+gap: 10px;
+}
+​.btn-primary {
+background: var(--ember);
+color: #fff;
+border: 0;
+padding: 13px 24px;
+border-radius: 999px;
+font-family: var(--mono);
+font-size: 0.7rem;
+font-weight: 700;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+cursor: pointer;
+transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), background 0.22s;
+}
+.btn-primary:hover { transform: scale(1.04); background: #ff5b2b; }
+​.btn-outline {
+background: rgba(18, 18, 17, 0.86);
+color: var(--white);
+border: 1px solid rgba(247, 244, 237, 0.24);
+padding: 13px 20px;
+border-radius: 999px;
+font-family: var(--mono);
+font-size: 0.68rem;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+cursor: pointer;
+transition: border-color 0.22s, background 0.22s;
+}
+.btn-outline:hover { border-color: #fff; background: rgba(255, 255, 255, 0.16); }
+​/* SCENE 0: HERO */
+.hero-inner {
+max-width: 1260px;
+width: 100%;
+margin: 0 auto;
+display: grid;
+grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
+align-items: center;
+gap: 24px;
+}
+.hero-copy { max-width: 720px; }
+.hero-headline {
+font-size: clamp(2.35rem, 5.8vw, 6.2rem);
+font-weight: 800;
+line-height: 0.94;
+letter-spacing: -0.045em;
+}
+.hero-headline em {
+font-family: var(--editorial);
+font-weight: 400;
+font-style: italic;
+color: var(--ember);
+letter-spacing: -0.015em;
+font-size: 1.08em;
+}
+.hero-subrow {
+margin-top: clamp(18px, 3vh, 30px);
+padding-top: clamp(16px, 2.4vh, 24px);
+border-top: 1px solid var(--line-dark);
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+gap: 18px;
+}
+.hero-desc {
+max-width: 540px;
+font-size: clamp(0.9rem, 1.1vw, 1.02rem);
+line-height: 1.62;
+color: #D6D2C8;
+font-weight: 400;
+}
+.cta-row {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+align-items: center;
+}
+​/* SCENE 1: EDITORIAL APPROACH (PAPER) */
+.paper-inner {
+max-width: 1180px;
+width: 100%;
+margin: 0 auto;
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+.manifesto-quote {
+font-family: var(--editorial);
+font-size: clamp(1.45rem, 3.2vw, 3.15rem);
+line-height: 1.16;
+letter-spacing: -0.02em;
+margin-bottom: clamp(20px, 3.2vh, 34px);
+}
+.manifesto-quote span {
+color: var(--ember);
+font-style: italic;
+}
+.shift-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+border-top: 1px solid var(--line-light);
+padding-top: clamp(18px, 2.6vh, 26px);
+gap: clamp(20px, 4vw, 48px);
+}
+.shift-col small {
+display: block;
+font-family: var(--mono);
+font-size: 0.66rem;
+letter-spacing: 0.14em;
+margin-bottom: 6px;
+color: #77736A;
+}
+.shift-col h3 {
+font-size: clamp(1.12rem, 1.7vw, 1.42rem);
+font-weight: 800;
+letter-spacing: -0.03em;
+margin-bottom: 6px;
+}
+.shift-col p {
+font-size: clamp(0.86rem, 1vw, 0.96rem);
+line-height: 1.6;
+color: #46433C;
+}
+​/* SCENE 2: FIVE PRODUCT SPACES */
+.eco-inner {
+max-width: 1260px;
+width: 100%;
+margin: 0 auto;
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+.eco-header {
+display: flex;
+justify-content: space-between;
+align-items: flex-end;
+margin-bottom: clamp(16px, 2.6vh, 24px);
+gap: 20px;
+padding-right: clamp(0px, 12vw, 180px);
+}
+.eco-title {
+font-size: clamp(1.6rem, 3.2vw, 3.1rem);
+font-weight: 800;
+line-height: 1.02;
+letter-spacing: -0.04em;
+}
+.eco-title em {
+font-family: var(--editorial);
+font-weight: 400;
+font-style: italic;
+color: var(--gold);
+}
+.filmstrip {
+display: flex;
+gap: 12px;
+height: clamp(250px, 44vh, 360px);
+}
+.reel {
+flex: 1;
+background: rgba(16, 16, 15, 0.92);
+border: 1px solid var(--line-dark);
+border-radius: 20px;
+padding: 20px;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+cursor: pointer;
+overflow: hidden;
+will-change: transform, flex;
+transition: flex 0.55s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s;
+}
+.reel:hover:not(.active) { border-color: rgba(247, 244, 237, 0.45); }
+.reel.active {
+flex: 4.6;
+background: rgba(22, 20, 18, 0.97);
+border-color: var(--ember);
+cursor: default;
+}
+.reel-head {
+display: flex;
+justify-content: space-between;
+font-family: var(--mono);
+font-size: 0.66rem;
+color: var(--muted);
+}
+.reel.active .reel-head { color: var(--ember); }
+.reel-vert {
+writing-mode: vertical-rl;
+transform: rotate(180deg);
+font-size: 1.08rem;
+font-weight: 700;
+margin: auto 0;
+white-space: nowrap;
+}
+.reel.active .reel-vert { display: none; }
+.reel-body {
+display: none;
+flex-direction: column;
+justify-content: space-between;
+height: 100%;
+padding-top: 12px;
+animation: riseIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.reel.active .reel-body { display: flex; }
+@keyframes riseIn {
+from { opacity: 0; transform: translate3d(0, 8px, 0); }
+to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.reel-body h3 {
+font-size: clamp(1.35rem, 2.3vw, 2.1rem);
+font-weight: 800;
+letter-spacing: -0.03em;
+line-height: 1.1;
+margin-bottom: 8px;
+}
+.reel-body p {
+font-size: 0.92rem;
+line-height: 1.58;
+color: #CCC7BC;
+max-width: 540px;
+}
+.reel-meta {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 10px;
+padding-top: 14px;
+border-top: 1px solid var(--line-dark);
+}
+.reel-meta span {
+display: block;
+font-family: var(--mono);
+font-size: 0.6rem;
+color: var(--muted);
+text-transform: uppercase;
+margin-bottom: 3px;
+}
+.reel-meta strong {
+font-size: 0.84rem;
+color: var(--white);
+}
+​/* SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW */
+.studio-grid {
+max-width: 1220px;
+width: 100%;
+margin: 0 auto;
+display: grid;
+grid-template-columns: 0.92fr 1.08fr;
+gap: clamp(24px, 4vw, 48px);
+align-items: center;
+}
+.studio-copy h2 {
+font-size: clamp(1.7rem, 3.3vw, 3.2rem);
+font-weight: 800;
+line-height: 1.04;
+letter-spacing: -0.04em;
+margin-bottom: 14px;
+}
+.studio-copy h2 em {
+font-family: var(--editorial);
+font-weight: 400;
+font-style: italic;
+color: var(--ember);
+}
+.studio-copy p {
+font-size: clamp(0.88rem, 1.05vw, 0.98rem);
+line-height: 1.62;
+color: #46433C;
+margin-bottom: 20px;
+}
+.device-frame {
+background: #111110;
+border-radius: 22px;
+padding: clamp(14px, 2vw, 20px);
+color: var(--white);
+box-shadow: 0 24px 60px rgba(11, 11, 10, 0.22);
+}
+.device-bar {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding-bottom: 12px;
+border-bottom: 1px solid var(--line-dark);
+font-family: var(--mono);
+font-size: 0.65rem;
+color: var(--muted);
+}
+.mode-pills { display: flex; gap: 6px; }
+.mode-pill {
+background: rgba(255,255,255,0.06);
+border: 1px solid transparent;
+color: var(--muted);
+font-family: var(--mono);
+font-size: 0.64rem;
+padding: 5px 11px;
+border-radius: 999px;
+cursor: pointer;
+transition: all 0.2s;
+}
+.mode-pill.on { background: var(--ember); color: #fff; }
+#boardCanvas {
+width: 100%;
+height: clamp(145px, 23vh, 215px);
+display: block;
+margin: 10px 0;
+border-radius: 14px;
+background: #090909;
+border: 1px solid var(--line-dark);
+}
+.device-foot {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 12px;
+font-size: 0.82rem;
+color: #D2CEC4;
+}
+​/* SCENE 4: TRUST PILLARS & BRAND MONUMENT */
+.closing-inner {
+max-width: 1240px;
+width: 100%;
+margin: 0 auto;
+display: flex;
+flex-direction: column;
+justify-content: center;
+gap: clamp(14px, 2.2vh, 26px);
+padding-bottom: 6px;
+}
+.closing-head {
+padding-right: clamp(0px, 14vw, 220px);
+}
+.pillars-row {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: clamp(10px, 1.4vw, 16px);
+}
+.pillar-card {
+background: rgba(16, 16, 15, 0.94);
+border: 1px solid var(--line-dark);
+border-radius: 16px;
+padding: clamp(14px, 1.6vw, 20px);
+will-change: transform, opacity;
+transition: border-color 0.25s;
+}
+.pillar-card:hover { border-color: var(--ember); }
+.pillar-card span {
+display: block;
+font-family: var(--mono);
+font-size: 0.6rem;
+color: var(--ember);
+margin-bottom: 6px;
+}
+.pillar-card h4 {
+font-size: clamp(0.92rem, 1.18vw, 1.08rem);
+font-weight: 800;
+margin-bottom: 4px;
+letter-spacing: -0.02em;
+}
+.pillar-card p {
+font-size: clamp(0.76rem, 0.9vw, 0.86rem);
+line-height: 1.5;
+color: #BDB8AD;
+}
+.monument-bar {
+padding: clamp(14px, 2vh, 20px) clamp(16px, 2.2vw, 24px);
+background: rgba(14, 14, 13, 0.92);
+border: 1px solid var(--line-dark);
+border-radius: 20px;
+display: flex;
+flex-wrap: wrap;
+justify-content: space-between;
+align-items: center;
+gap: 14px;
+position: relative;
+z-index: 5;
+}
+.wordmark-lockup {
+display: flex;
+align-items: center;
+gap: 12px;
+}
+.wordmark-lockup svg {
+width: clamp(28px, 3.2vw, 40px);
+height: clamp(28px, 3.2vw, 40px);
+fill: var(--white);
+flex: none;
+}
+.wordmark-text {
+font-size: clamp(1.45rem, 3.2vw, 3rem);
+font-weight: 800;
+letter-spacing: -0.05em;
+line-height: 0.9;
+}
+​/* BOTTOM SAFE-ZONE SPATIAL DOCK */
+.spatial-dock {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+height: 74px;
+z-index: 200;
+padding: 0 40px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+pointer-events: none;
+}
+.dock-counter {
+font-family: var(--mono);
+font-size: 0.68rem;
+letter-spacing: 0.16em;
+color: #F7F4ED;
+background: rgba(12, 12, 11, 0.72);
+border: 1px solid rgba(255, 255, 255, 0.14);
+padding: 8px 16px;
+border-radius: 999px;
+}
+.dock-rail {
+pointer-events: auto;
+display: flex;
+align-items: center;
+gap: 10px;
+background: rgba(12, 12, 11, 0.72);
+border: 1px solid rgba(255, 255, 255, 0.14);
+padding: 12px 18px;
+border-radius: 999px;
+}
+.rail-dot {
+width: 24px;
+height: 3px;
+background: rgba(255,255,255,0.3);
+border: 0;
+cursor: pointer;
+transition: width 0.34s cubic-bezier(0.16, 1, 0.3, 1), background 0.34s;
+}
+.rail-dot.active {
+width: 50px;
+background: var(--ember);
+}
+.dock-arrows {
+pointer-events: auto;
+display: flex;
+gap: 8px;
+}
+.arrow-btn {
+width: 38px;
+height: 38px;
+border-radius: 50%;
+border: 1px solid rgba(255,255,255,0.22);
+background: rgba(12, 12, 11, 0.75);
+color: #F7F4ED;
+font-family: var(--mono);
+font-size: 0.85rem;
+cursor: pointer;
+transition: background 0.22s, color 0.22s, border-color 0.22s;
+}
+.arrow-btn:hover { background: var(--ember); border-color: var(--ember); color: #fff; }
+​/* Document Drawer Modal */
+.drawer {
+position: fixed;
+inset: 0;
+z-index: 980;
+background: rgba(5, 5, 5, 0.85);
+display: none;
+align-items: center;
+justify-content: center;
+padding: 20px;
+}
+.drawer.open { display: flex; }
+.drawer-box {
+background: var(--paper);
+color: var(--ink);
+border-radius: 24px;
+max-width: 600px;
+width: 100%;
+max-height: 82vh;
+overflow-y: auto;
+padding: 34px;
+}
+​@media (max-width: 960px) {
+.hud-top { height: 60px; padding: 0 16px; }
+.hud-nav { display: none; }
+.scene { padding: 68px 16px 82px; }
+.scene-paper { inset: 68px 12px 76px; padding: 18px; }
+.hero-inner { grid-template-columns: 1fr; text-align: center; padding-top: 40px; }
+.hero-copy { margin: 0 auto; }
+.hero-subrow { align-items: center; }
+.cta-row { justify-content: center; }
+.shift-grid, .studio-grid { grid-template-columns: 1fr; gap: 14px; }
+.eco-header { padding-right: 0; flex-direction: column; align-items: flex-start; gap: 6px; }
+.filmstrip { flex-direction: column; height: auto; max-height: 48vh; overflow-y: auto; }
+.reel { padding: 14px 16px; }
+.reel-vert { writing-mode: horizontal-tb; transform: none; }
+.reel.active { flex: 1; }
+.reel-meta { grid-template-columns: 1fr; gap: 6px; padding-top: 10px; }
+.closing-head { padding-right: 0; }
+.closing-inner { gap: 10px; justify-content: center; }
+.pillars-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+.pillar-card { padding: 10px 12px; }
+.pillar-card p { font-size: 0.72rem; line-height: 1.38; }
+.monument-bar { padding: 12px; gap: 10px; justify-content: center; text-align: center; }
+.monument-bar .btn-outline, .monument-bar .btn-primary { padding: 10px 14px; font-size: 0.62rem; }
+.spatial-dock { height: 64px; padding: 0 16px; }
+.dock-rail { display: none; }
+#boardCanvas { height: 135px; }
+}
+</style>
 </head>
 <body>
-  <div class="noise"></div>
-  <div class="cursor-ring" id="cursorRing"></div>
+<div class="noise"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+​<!-- Vector Trace of Rascademy Company Emblem -->
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<path id="rascademy-emblem-path" d="M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z" />
+</defs>
+</svg>
+​<!-- Opening Smooth Flame + Emblem Curtain -->
+<div id="splash" aria-hidden="true">
+<canvas id="flameCanvas" width="480" height="480"></canvas>
+<div class="splash-caption">Rascademy</div>
+</div>
+​<!-- Persistent Monumental Kinetic Emblem Field -->
+<canvas id="heroField"></canvas>
+​<!-- Cinematic Speed-Ramp Letterbox Bars -->
+<div class="cine-bar top" id="cineTop"></div>
+<div class="cine-bar bot" id="cineBot"></div>
+​<!-- Top Safe-Zone Floating HUD -->
+<header class="hud-top">
+<button class="hud-brand" onclick="goScene(0)">
+<svg viewBox="180 230 640 580" aria-hidden="true">
+<use href="#rascademy-emblem-path" />
+</svg>
+<span>Rascademy</span>
+</button>
+​<nav class="hud-nav" id="hudNav">
+<button class="hud-link active" onclick="goScene(0)">01 Beranda</button>
+<button class="hud-link" onclick="goScene(1)">02 Pendekatan</button>
+<button class="hud-link" onclick="goScene(2)">03 Produk</button>
+<button class="hud-link" onclick="goScene(3)">04 Studio</button>
+<button class="hud-link" onclick="goScene(4)">05 Prinsip</button>
+</nav>
+</header>
+​<!-- CINEMATIC SPEED-RAMP SPATIAL STAGE -->
+<main id="viewport">
+​<!-- SCENE 0: MONUMENTAL PRODUCT INTRODUCTION -->
+<section class="scene scene-dark is-current" data-idx="0">
+<div class="hero-inner">
+<div class="hero-copy">
+<div class="kicker">CONCEPT-FIRST MATHEMATICS PLATFORM</div>
+<h1 class="hero-headline">
+FONDASI <em>Konsep,</em>
 
-  <!-- Exact Vector Trace of Rascademy Company Emblem (1000112395.png) -->
-  <svg width="0" height="0" style="position:absolute">
-    <defs>
-      <path id="rascademy-emblem-path" d="M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z" />
-    </defs>
-  </svg>
-
-  <!-- Opening Smooth Flame + Emblem Curtain (PRD Sec. 8 & 28.1) -->
-  <div id="splash" aria-hidden="true">
-    <canvas id="flameCanvas" width="480" height="480"></canvas>
-    <div class="splash-caption">Rascademy • Concept-First Studio</div>
-  </div>
-
-  <!-- Minimal Floating HUD -->
-  <header class="hud-top">
-    <a href="#" class="hud-brand">
-      <svg viewBox="180 230 640 580" aria-hidden="true">
-        <use href="#rascademy-emblem-path" />
-      </svg>
-      <span>Rascademy</span>
-    </a>
-
-    <nav class="hud-menu">
-      <a href="#filosofi">Filosofi</a>
-      <a href="#ekosistem">Produk</a>
-      <a href="#tata-kelola">Tata Kelola</a>
-      <button onclick="openDoc('privacy')">Piagam Privasi</button>
-    </nav>
-  </header>
-
-  <!-- HERO: FULL-BLEED KINETIC LOGO FIELD -->
-  <section class="hero">
-    <canvas id="heroField"></canvas>
-
-    <div class="hero-foreground">
-      <div class="hero-meta-row">
-        <span>EDTECH COMPANY • INDONESIA</span>
-        <span>GERAKKAN KURSOR PADA SILUET LOGO</span>
-        <span>MVP v1.0</span>
-      </div>
-
-      <h1 class="hero-title">
-        MATEMATIKA<br>
-        YANG <em>Dipahami,</em><br>
-        BUKAN DIHAFAL.
-      </h1>
-
-      <div class="hero-bottom">
-        <p class="hero-statement">
-          Rascademy membangun infrastruktur belajar matematika berbasis <strong>Concept-First Learning</strong>—menyatukan papan tulis digital hening, latihan adaptif terstruktur, dan kompetisi akademik beretika bagi pelajar Indonesia.
-        </p>
-
-        <div class="hero-actions">
-          <a href="#ekosistem" class="btn-ember">Eksplorasi Produk ↓</a>
-          <button class="btn-ghost" onclick="openDoc('roadmap')">Roadmap MVP</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SECTION II: HIGH-CONTRAST PAPER MANIFESTO -->
-  <section class="paper-sheet" id="filosofi">
-    <div class="section-tag">01 // IDENTITAS PERUSAHAAN</div>
-
-    <h2 class="editorial-lead">
-      Banyak pelajar bisa meniru langkah pengerjaan contoh soal, namun goyah saat bentuk soal berubah. Rascademy hadir untuk menutup <span>celah pemahaman konsep</span> itu sejak hari pertama.
-    </h2>
-
-    <div class="contrast-stage">
-      <div class="contrast-half">
-        <span class="contrast-label" style="color:#8E8B84;">PENDEKATAN LAMA</span>
-        <h3>Hafalan Rumus &amp; Distraksi Digital</h3>
-        <p>
-          Platform belajar konvensional mengejar retensi lewat notifikasi agresif, efek suara berisik, dan ribuan soal acak. Pelajar terjebak menghafal jalan pintas tanpa pernah mengerti mengapa sebuah teorema bekerja.
-        </p>
-      </div>
-
-      <div class="contrast-half">
-        <span class="contrast-label" style="color:var(--ember);font-weight:700;">STANDAR RASCADEMY</span>
-        <h3>Concept-First &amp; Calm Architecture</h3>
-        <p>
-          Kami memprioritaskan kejernihan berpikir di atas kuantitas fitur. Alur belajar disusun berjenjang dari gambaran besar roadmap menuju inti konsep, contoh bermakna, lalu evaluasi terukur dalam suasana hening.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- SECTION III: INTERACTIVE PRODUCT EXHIBITION FILMSTRIP -->
-  <section class="exhibition" id="ekosistem">
-    <div class="exhibition-header">
-      <div>
-        <div class="section-tag" style="color:var(--muted);">02 // ARSITEKTUR PRODUK MVP</div>
-        <h2 class="exhibition-title">Lima Ruang dalam<br>Satu <em>Ekosistem Tenang.</em></h2>
-      </div>
-      <p style="max-width:360px;color:var(--muted);font-size:0.94rem;line-height:1.6;">
-        Klik setiap panel di bawah untuk meninjau bagaimana Rascademy merancang setiap modul produknya.
-      </p>
-    </div>
-
-    <div class="filmstrip" id="filmstrip">
-      <!-- Panel 1 -->
-      <article class="reel-card active" onclick="activateReel(this)">
-        <div class="reel-top">
-          <span>01 / LEARNING</span>
-          <span>BELAJAR</span>
-        </div>
-        <div class="reel-collapsed-title">01 — Belajar Konsep</div>
-        <div class="reel-expanded">
-          <div>
-            <h3>Roadmap Berjenjang &amp; Papan Tulis Digital</h3>
-            <p>
-              Perjalanan belajar disusun terstruktur dari Roadmap → Bab → Subbab → Video Papan Tulis → Ringkasan → Contoh Soal → Checkpoint Quiz. Video disajikan memakai grafik presisi dan narasi suara tanpa wajah pengajar agar fokus tetap utuh.
-            </p>
-          </div>
-          <div class="reel-specs">
-            <div class="reel-spec"><span>Format Video</span><strong>Papan Tulis &amp; Grafik</strong></div>
-            <div class="reel-spec"><span>Navigasi</span><strong>Continue Learning</strong></div>
-            <div class="reel-spec"><span>Evaluasi</span><strong>Checkpoint Quiz</strong></div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Panel 2 -->
-      <article class="reel-card" onclick="activateReel(this)">
-        <div class="reel-top">
-          <span>02 / PRACTICE</span>
-          <span>LATSOL</span>
-        </div>
-        <div class="reel-collapsed-title">02 — Latsol Terukur</div>
-        <div class="reel-expanded">
-          <div>
-            <h3>Latihan Penguatan Lintas Tingkat Kesulitan</h3>
-            <p>
-              Setelah konsep dipahami, pengguna memperkuat penguasaan melalui sesi Latsol berdasarkan topik dan level (Dasar, Menengah, Lanjutan). Setiap sesi ditutup dengan evaluasi otomatis dan pembahasan alasan setiap langkah.
-            </p>
-          </div>
-          <div class="reel-specs">
-            <div class="reel-spec"><span>Tingkatan</span><strong>Dasar • Menengah • Lanjut</strong></div>
-            <div class="reel-spec"><span>Umpan Balik</span><strong>Pembahasan Konseptual</strong></div>
-            <div class="reel-spec"><span>Metrik</span><strong>Akurasi &amp; Riwayat</strong></div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Panel 3 -->
-      <article class="reel-card" onclick="activateReel(this)">
-        <div class="reel-top">
-          <span>03 / COMPETITIVE</span>
-          <span>CERDAS CERMAT</span>
-        </div>
-        <div class="reel-collapsed-title">03 — Cerdas Cermat 1v1</div>
-        <div class="reel-expanded">
-          <div>
-            <h3>Kompetisi Akademik Real-Time Tanpa Taruhan</h3>
-            <p>
-              Arena adu ketajaman pemahaman matematika 1 lawan 1 secara sinkron. Pencocokan dilakukan antarpeserta sesama gender, gratis tanpa biaya pendaftaran, tanpa unsur taruhan, dan bebas percakapan teks maupun suara.
-            </p>
-          </div>
-          <div class="reel-specs">
-            <div class="reel-spec"><span>Matchmaking</span><strong>1v1 Sesama Gender</strong></div>
-            <div class="reel-spec"><span>Integritas</span><strong>Gratis &amp; Tanpa Taruhan</strong></div>
-            <div class="reel-spec"><span>Komunikasi</span><strong>Tanpa Chat Bebas</strong></div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Panel 4 -->
-      <article class="reel-card" onclick="activateReel(this)">
-        <div class="reel-top">
-          <span>04 / COLLABORATIVE</span>
-          <span>PAIR</span>
-        </div>
-        <div class="reel-collapsed-title">04 — Pair Partner</div>
-        <div class="reel-expanded">
-          <div>
-            <h3>Akuntabilitas Belajar Satu Partner</h3>
-            <p>
-              Satu akun terhubung dengan satu partner sesama gender untuk menetapkan target dan memantau konsistensi belajar bersama. Berbagi progres berlangsung atas persetujuan penuh dan dapat dicabut kapan saja.
-            </p>
-          </div>
-          <div class="reel-specs">
-            <div class="reel-spec"><span>Kapasitas</span><strong>1 Partner Aktif</strong></div>
-            <div class="reel-spec"><span>Privasi</span><strong>Persetujuan Dapat Dicabut</strong></div>
-            <div class="reel-spec"><span>Batasan</span><strong>Tanpa Pelacakan Lokasi</strong></div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Panel 5 -->
-      <article class="reel-card" onclick="activateReel(this)">
-        <div class="reel-top">
-          <span>05 / PERSONAL</span>
-          <span>PROFIL</span>
-        </div>
-        <div class="reel-collapsed-title">05 — Profil &amp; Progres</div>
-        <div class="reel-expanded">
-          <div>
-            <h3>Visibilitas Perkembangan Mandiri</h3>
-            <p>
-              Pusat ringkasan perjalanan belajar pengguna: memantau penyelesaian roadmap, statistik akurasi latihan, pencapaian akademik, riwayat pertandingan, serta pengaturan privasi akun dalam satu tampilan bersih.
-            </p>
-          </div>
-          <div class="reel-specs">
-            <div class="reel-spec"><span>Single Source</span><strong>Sinkronisasi Otomatis</strong></div>
-            <div class="reel-spec"><span>Target Pengguna</span><strong>SMA XI–XII &amp; UTBK</strong></div>
-            <div class="reel-spec"><span>Kontrol</span><strong>Pengaturan Data Penuh</strong></div>
-          </div>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <!-- SECTION IV: GOVERNANCE, CALM ARCHITECTURE & ETHICS -->
-  <section class="charter" id="tata-kelola">
-    <div class="charter-grid">
-      <div class="charter-sticky">
-        <div class="section-tag">03 // PRINSIP REKAYASA &amp; ETIKA</div>
-        <h2>Dibangun dengan <em>Disiplin Produk</em> yang Ketat.</h2>
-        <p style="font-size:1rem;line-height:1.68;color:#4A4740;margin-bottom:26px;">
-          Setiap baris kode dan keputusan antarmuka Rascademy tunduk pada standar etika interaksi pelajar remaja, perlindungan hak cipta, dan ketenangan kognitif.
-        </p>
-        <button class="btn-ember" onclick="openDoc('privacy')">Baca Kebijakan Privasi &amp; Ketentuan</button>
-      </div>
-
-      <div>
-        <div class="principle-item">
-          <span class="principle-num">01 // HENING</span>
-          <div>
-            <h4>Nol Notifikasi, Nol Musik Latar, Nol Tekanan</h4>
-            <p>Rascademy tidak mengirimkan push notification, SMS, badge angka merah, maupun pengingat yang memicu kecemasan. Suara hanya hadir ketika pengguna memutar video materi.</p>
-          </div>
-        </div>
-
-        <div class="principle-item">
-          <span class="principle-num">02 // AMAN</span>
-          <div>
-            <h4>Interaksi Sesama Gender &amp; Tanpa Fitur Chat</h4>
-            <p>Pada fitur Pair dan Cerdas Cermat, pencocokan dibatasi pada gender yang sama tanpa layanan pesan teks, suara, maupun video bebas—menjaga ruang belajar tetap kondusif dan aman.</p>
-          </div>
-        </div>
-
-        <div class="principle-item">
-          <span class="principle-num">03 // ORISINAL</span>
-          <div>
-            <h4>Kurikulum &amp; Bank Soal Berlisensi Jelas</h4>
-            <p>Seluruh materi konsep, ilustrasi grafik, dan soal latihan disusun ulang secara orisinal atau menggunakan aset berlisensi resmi tanpa menyalin soal komersial tanpa izin.</p>
-          </div>
-        </div>
-
-        <div class="principle-item">
-          <span class="principle-num">04 // MODULAR</span>
-          <div>
-            <h4>Fondasi Teknis Siap Tumbuh Jangka Panjang</h4>
-            <p>Arsitektur sistem memisahkan aturan bisnis, konfigurasi konten, dan antarmuka secara bersih sehingga ekspansi fitur lanjutan (seperti latihan adaptif) berjalan mulus tanpa merusak sistem inti.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- MONUMENTAL FOOTER -->
-  <footer class="footer">
-    <div class="footer-top">
-      <div class="footer-emblem-box">
-        <svg viewBox="180 230 640 580" aria-label="Logo Rascademy">
-          <use href="#rascademy-emblem-path" />
-        </svg>
-        <div class="footer-wordmark">RASCADEMY</div>
-      </div>
-
-      <div class="footer-pills">
-        <button class="f-pill" onclick="openDoc('privacy')">Privacy Policy</button>
-        <button class="f-pill" onclick="openDoc('terms')">Terms of Use</button>
-        <button class="f-pill" onclick="openDoc('roadmap')">MVP Release Plan</button>
-      </div>
-    </div>
-
-    <div class="footer-bottom">
-      <span>© RASCADEMY — CONCEPT-FIRST MATHEMATICS PLATFORM • INDONESIA</span>
-      <span>CLARITY • FOCUS • PROGRESS • CONSISTENCY • QUALITY • GROWTH</span>
-    </div>
-  </footer>
-
-  <!-- DOCUMENT MODAL DRAWER -->
-  <div class="drawer" id="docDrawer" onclick="closeDoc()">
-    <div class="drawer-box" onclick="event.stopPropagation()">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--line-light);margin-bottom:20px;">
-        <span id="drawerTag" style="font-family:var(--mono);font-size:0.72rem;color:var(--ember);font-weight:700;">DOKUMEN</span>
-        <button onclick="closeDoc()" style="background:none;border:0;font-family:var(--mono);font-size:0.9rem;cursor:pointer;">TUTUP ✕</button>
-      </div>
-      <h3 id="drawerTitle" style="font-size:1.75rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:16px;"></h3>
-      <div id="drawerBody" style="display:flex;flex-direction:column;gap:14px;font-size:0.96rem;line-height:1.7;color:#3D3A34;"></div>
-    </div>
-  </div>
-
-  <script>
-    const LOGO_PATH_STR = "M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z";
-
-    // 1. Smooth Flame + Logo Splash Animation (PRD Section 8)
-    (function runSplash() {
-      const c = document.getElementById('flameCanvas');
-      const ctx = c.getContext('2d');
-      const logoPath = new Path2D(LOGO_PATH_STR);
-      let start = performance.now();
-      let active = true;
-
-      function frame(now) {
-        if (!active) return;
-        const t = (now - start) / 1000;
-        ctx.clearRect(0, 0, 480, 480);
-
-        // Soft organic ember aura behind emblem
-        const grad = ctx.createRadialGradient(240, 250, 12, 240, 250, 175 + Math.sin(t * 5) * 14);
-        grad.addColorStop(0, 'rgba(255, 72, 20, 0.55)');
-        grad.addColorStop(0.55, 'rgba(245, 184, 65, 0.16)');
-        grad.addColorStop(1, 'rgba(5, 5, 5, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 480, 480);
-
-        // Rising smooth flame wisps
-        for (let i = 0; i < 14; i++) {
-          const p = ((t * 0.85 + i * 0.17) % 1);
-          const x = 240 + Math.sin(t * 3 + i * 2.1) * (36 * (1 - p));
-          const y = 320 - p * 190;
-          const r = (1 - p) * 18;
-          ctx.beginPath();
-          ctx.arc(x, y, Math.max(1, r), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255, ${Math.round(90 + p * 120)}, 30, ${(1 - p) * 0.32})`;
-          ctx.fill();
-        }
-
-        // Crisp Rascademy White Emblem
-        ctx.save();
-        ctx.translate(240, 242);
-        const s = 0.34 + Math.min(0.04, t * 0.04);
-        ctx.scale(s, s);
-        ctx.translate(-500, -520);
-        ctx.fillStyle = '#F5F3EE';
-        ctx.fill(logoPath);
-        ctx.restore();
-
-        if (t < 1.35) {
-          requestAnimationFrame(frame);
-        } else {
-          active = false;
-          document.getElementById('splash').classList.add('done');
-        }
-      }
-      requestAnimationFrame(frame);
-    })();
-
-    // 2. Interactive Kinetic Brand Emblem Particle Sculpture in Hero
-    (function initHeroLogoSculpture() {
-      const canvas = document.getElementById('heroField');
-      const ctx = canvas.getContext('2d');
-      let W = 0, H = 0, dpr = 1;
-      let particles = [];
-      const mouse = { x: -9999, y: -9999, active: false };
-
-      function buildLogoParticles() {
-        W = canvas.width = Math.floor(canvas.offsetWidth * dpr);
-        H = canvas.height = Math.floor(canvas.offsetHeight * dpr);
-
-        // Offscreen rasterizer to sample exact points inside the Rascademy logo
-        const off = document.createElement('canvas');
-        const size = 260;
-        off.width = size;
-        off.height = size;
-        const octx = off.getContext('2d');
-        const p2d = new Path2D(LOGO_PATH_STR);
-
-        octx.save();
-        octx.translate(size / 2, size / 2);
-        octx.scale(0.36, 0.36);
-        octx.translate(-500, -520);
-        octx.fillStyle = '#ffffff';
-        octx.fill(p2d);
-        octx.restore();
-
-        const img = octx.getImageData(0, 0, size, size).data;
-        const nextParticles = [];
-        const step = window.innerWidth < 768 ? 6 : 5;
-        const scale = Math.min(W, H) * (window.innerWidth < 768 ? 0.0029 : 0.0034);
-        const offsetX = window.innerWidth < 768 ? W * 0.52 : W * 0.68;
-        const offsetY = window.innerWidth < 768 ? H * 0.34 : H * 0.44;
-
-        for (let y = 0; y < size; y += step) {
-          for (let x = 0; x < size; x += step) {
-            const alpha = img[(y * size + x) * 4 + 3];
-            if (alpha > 128) {
-              const tx = offsetX + (x - size / 2) * scale;
-              const ty = offsetY + (y - size / 2) * scale;
-              const isEdge = (
-                img[((y - step) * size + x) * 4 + 3] < 128 ||
-                img[((y + step) * size + x) * 4 + 3] < 128 ||
-                img[(y * size + (x - step)) * 4 + 3] < 128 ||
-                img[(y * size + (x + step)) * 4 + 3] < 128
-              );
-              nextParticles.push({
-                tx, ty,
-                x: tx + (Math.random() - 0.5) * 180,
-                y: ty + (Math.random() - 0.5) * 180,
-                vx: 0, vy: 0,
-                r: (isEdge ? 2.1 : 1.55) * dpr,
-                edge: isEdge,
-                phase: Math.random() * Math.PI * 2
-              });
-            }
-          }
-        }
-        particles = nextParticles;
-      }
-
-      function resize() {
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        buildLogoParticles();
-      }
-      window.addEventListener('resize', resize);
-      resize();
-
-      window.addEventListener('pointermove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = (e.clientX - rect.left) * dpr;
-        mouse.y = (e.clientY - rect.top) * dpr;
-        mouse.active = true;
-      }, { passive: true });
-
-      window.addEventListener('pointerleave', () => { mouse.active = false; });
-
-      function animate(now) {
-        const t = now * 0.0015;
-        ctx.clearRect(0, 0, W, H);
-
-        // Subtle warm ambient glow behind the logo sculpture
-        const gx = window.innerWidth < 768 ? W * 0.52 : W * 0.68;
-        const gy = window.innerWidth < 768 ? H * 0.34 : H * 0.44;
-        const glow = ctx.createRadialGradient(gx, gy, 10, gx, gy, Math.min(W, H) * 0.46);
-        glow.addColorStop(0, 'rgba(255, 72, 20, 0.16)');
-        glow.addColorStop(0.6, 'rgba(245, 184, 65, 0.04)');
-        glow.addColorStop(1, 'rgba(8, 8, 8, 0)');
-        ctx.fillStyle = glow;
-        ctx.fillRect(0, 0, W, H);
-
-        const repelRadius = 115 * dpr;
-
-        for (let i = 0; i < particles.length; i++) {
-          const p = particles[i];
-          const breatheX = Math.sin(t + p.phase) * 2.2 * dpr;
-          const breatheY = Math.cos(t * 0.9 + p.phase) * 2.2 * dpr;
-          const targetX = p.tx + breatheX;
-          const targetY = p.ty + breatheY;
-
-          if (mouse.active) {
-            const dx = p.x - mouse.x;
-            const dy = p.y - mouse.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < repelRadius && dist > 0.01) {
-              const force = (1 - dist / repelRadius) * 14 * dpr;
-              p.vx += (dx / dist) * force;
-              p.vy += (dy / dist) * force;
-            }
-          }
-
-          // Spring back to organic Rascademy emblem silhouette
-          p.vx += (targetX - p.x) * 0.075;
-          p.vy += (targetY - p.y) * 0.075;
-          p.vx *= 0.82;
-          p.vy *= 0.82;
-          p.x += p.vx;
-          p.y += p.vy;
-
-          const speed = Math.hypot(p.vx, p.vy);
-          ctx.fillStyle = speed > 1.8 * dpr
-            ? '#FF4814'
-            : (p.edge ? 'rgba(245, 243, 238, 0.92)' : 'rgba(245, 243, 238, 0.42)');
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        requestAnimationFrame(animate);
-      }
-      requestAnimationFrame(animate);
-    })();
-
-    // 3. Magnetic Cursor Ring
-    const ring = document.getElementById('cursorRing');
-    window.addEventListener('pointermove', (e) => {
-      if (!ring) return;
-      ring.style.left = e.clientX + 'px';
-      ring.style.top = e.clientY + 'px';
-    }, { passive: true });
-    document.querySelectorAll('a, button, .reel-card').forEach(el => {
-      el.addEventListener('mouseenter', () => ring && ring.classList.add('expand'));
-      el.addEventListener('mouseleave', () => ring && ring.classList.remove('expand'));
-    });
-
-    // 4. Interactive Filmstrip Exhibition Switcher
-    function activateReel(card) {
-      document.querySelectorAll('.reel-card').forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-    }
-
-    // 5. Governance & PRD Documentation Drawer
-    const DOC_DATA = {
-      privacy: {
-        tag: 'KEBIJAKAN PRIVASI SINGKAT • RASCADEMY',
-        title: 'Transparansi Data & Perlindungan Pelajar',
-        items: [
-          '<strong>Data yang Digunakan:</strong> Rascademy hanya mengumpulkan informasi akun dasar, jenis kelamin (khusus untuk pencocokan sesama gender pada Pair dan Cerdas Cermat), progres belajar, dan riwayat latihan.',
-          '<strong>Tanpa Fitur Percakapan:</strong> Aplikasi tidak menyediakan fitur chat teks, suara, maupun video antarpengguna dan tidak pernah mengambil atau menyimpan isi percakapan pengguna.',
-          '<strong>Kendali Penuh Fitur Pair:</strong> Berbagi progres dan target belajar dengan partner berlangsung atas persetujuan kedua pihak dan dapat dicabut kapan saja.',
-          '<strong>Lingkungan Hening Tanpa Notifikasi:</strong> Rascademy tidak mengirimkan push notification, SMS, maupun email pengingat dalam bentuk apa pun.'
-        ]
-      },
-      terms: {
-        tag: 'TERMS OF USE • RASCADEMY',
-        title: 'Ketentuan Penggunaan Layanan',
-        items: [
-          '<strong>Tujuan Pembelajaran:</strong> Layanan Rascademy ditujukan untuk pembelajaran matematika berbasis pemahaman konsep secara mandiri dan kolaboratif.',
-          '<strong>Hak Cipta Materi:</strong> Seluruh video papan tulis digital, grafik, soal latihan, dan identitas visual Rascademy dilindungi hak cipta serta tidak boleh disalin atau disebarluaskan ulang tanpa izin.',
-          '<strong>Sportivitas Kompetisi:</strong> Cerdas Cermat bersifat akademik, gratis tanpa biaya pendaftaran, bebas taruhan, dan mencocokkan peserta sesama gender.'
-        ]
-      },
-      roadmap: {
-        tag: 'RELEASE PLAN • MVP VERSION 1.0',
-        title: 'Tahapan Pengembangan Produk Rascademy',
-        items: [
-          '<strong>Milestone 1 — Internal Prototype:</strong> Validasi alur Concept-First Learning, identitas pembuka api halus, dan struktur navigasi 5 ruang inti.',
-          '<strong>Milestone 2 — Functional MVP:</strong> Peluncuran pengalaman inti Belajar (Roadmap & Papan Tulis), Latsol, Cerdas Cermat 1v1, Pair, dan Profil Progres.',
-          '<strong>Milestone 3 & 4 — Validasi & Iterasi Terukur:</strong> Pengujian langsung bersama pelajar SMA XI–XII dan peserta UTBK sebelum pengembangan latihan adaptif.'
-        ]
-      }
-    };
-
-    function openDoc(key) {
-      const d = DOC_DATA[key];
-      document.getElementById('drawerTag').textContent = d.tag;
-      document.getElementById('drawerTitle').textContent = d.title;
-      document.getElementById('drawerBody').innerHTML = d.items.map(t => `<p>${t}</p>`).join('');
-      document.getElementById('docDrawer').classList.add('open');
-    }
-    function closeDoc() {
-      document.getElementById('docDrawer').classList.remove('open');
-    }
-  </script>
+KEJELASAN POLA.
+</h1>
+​<div class="hero-subrow">
+<p class="hero-desc">
+Rascademy menghadirkan ruang belajar matematika modern yang menempatkan pemahaman konsep sebagai fondasi utama—memadukan papan tulis digital jernih, latihan terstruktur, dan kompetisi akademik dalam suasana belajar yang tenang.
+</p>
+<div class="cta-row">
+<button class="btn-primary" onclick="goScene(2)">Eksplorasi Produk →</button>
+<button class="btn-outline" onclick="goScene(3)">Pratinjau Studio</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true"></div>
+</div>
+</section>
+​<!-- SCENE 1: EDITORIAL APPROACH (PAPER) -->
+<section class="scene scene-paper" data-idx="1">
+<div class="paper-inner">
+<div class="kicker">01 // PENDEKATAN PEMBELAJARAN</div>
+<h2 class="manifesto-quote">
+Banyak pelajar sanggup mengikuti contoh soal, namun memerlukan pegangan lebih kuat saat menghadapi variasi baru. Rascademy membangun jembatan <span>pemahaman konsep</span> dari akarnya.
+</h2>
+​<div class="shift-grid">
+<div class="shift-col">
+<small>POLA UMUM SEBELUMNYA</small>
+<h3>Hafalan Langkah & Kebisingan Visual</h3>
+<p>
+Tumpukan soal acak tanpa alur bertahap sering membuat pelajar sekadar menghafal rumus cepat, sementara notifikasi dan efek suara memecah konsentrasi berpikir.
+</p>
+</div>
+<div class="shift-col">
+<small style="color:var(--ember);font-weight:700;">PENGALAMAN RASCADEMY</small>
+<h3>Alur Runtut & Suasana Belajar Hening</h3>
+<p>
+Setiap materi tersusun sistematis dari peta konsep menuju contoh bermakna dan evaluasi terukur, dirancang tanpa notifikasi maupun musik latar agar fokus terjaga penuh.
+</p>
+</div>
+</div>
+</div>
+</section>
+​<!-- SCENE 2: FIVE PRODUCT SPACES -->
+<section class="scene scene-dark" data-idx="2">
+<div class="eco-inner">
+<div class="eco-header">
+<div>
+<div class="kicker">02 // EKOSISTEM PRODUK</div>
+<h2 class="eco-title">Lima Ruang Utama
+dalam Satu <em>Aplikasi.</em></h2>
+</div>
+<p style="max-width:340px;color:#BDB8AD;font-size:0.9rem;line-height:1.55;">
+Setiap ruang saling terhubung untuk mendampingi perjalanan belajar mandiri maupun kolaboratif.
+</p>
+</div>
+​<div class="filmstrip">
+<article class="reel active" onclick="activateReel(this)">
+<div class="reel-head"><span>01 / BELAJAR</span><span>INTI KONSEP</span></div>
+<div class="reel-vert">01 — Belajar Konsep</div>
+<div class="reel-body">
+<div>
+<h3>Roadmap Terstruktur & Papan Tulis Digital</h3>
+<p>
+Alur belajar mengalir dari Roadmap → Bab → Subbab → Video Papan Tulis → Ringkasan → Contoh Soal → Checkpoint Quiz. Video berfokus pada grafik dan narasi suara tanpa menampilkan wajah pengajar.
+</p>
+</div>
+<div class="reel-meta">
+<div><span>Media Utama</span><strong>Papan Tulis & Grafik</strong></div>
+<div><span>Kelanjutan</span><strong>Continue Learning</strong></div>
+<div><span>Validasi</span><strong>Checkpoint Quiz</strong></div>
+</div>
+</div>
+</article>
+​<article class="reel" onclick="activateReel(this)">
+<div class="reel-head"><span>02 / LATSOL</span><span>PENGUATAN</span></div>
+<div class="reel-vert">02 — Latsol Terukur</div>
+<div class="reel-body">
+<div>
+<h3>Latihan Soal Lintas Tingkat Tantangan</h3>
+<p>
+Pengguna memilih materi dan level kesulitan (Dasar, Menengah, Lanjutan) untuk memperkuat penerapan konsep. Setiap sesi dilengkapi pembahasan alasan di balik tiap langkah penyelesaian.
+</p>
+</div>
+<div class="reel-meta">
+<div><span>Level</span><strong>Dasar • Menengah • Lanjut</strong></div>
+<div><span>Pembahasan</span><strong>Langkah Konseptual</strong></div>
+<div><span>Pantauan</span><strong>Statistik Akurasi</strong></div>
+</div>
+</div>
+</article>
+​<article class="reel" onclick="activateReel(this)">
+<div class="reel-head"><span>03 / CERDAS CERMAT</span><span>KOMPETISI</span></div>
+<div class="reel-vert">03 — Cerdas Cermat 1v1</div>
+<div class="reel-body">
+<div>
+<h3>Duel Matematika Real-Time yang Sportif</h3>
+<p>
+Pertandingan 1 lawan 1 secara sinkron untuk mengukur ketajaman berpikir. Pencocokan berlangsung antarpeserta sesama gender, gratis tanpa biaya pendaftaran, bebas taruhan, dan tanpa fitur chat.
+</p>
+</div>
+<div class="reel-meta">
+<div><span>Format</span><strong>1v1 Sesama Gender</strong></div>
+<div><span>Akses</span><strong>Gratis & Tanpa Taruhan</strong></div>
+<div><span>Interaksi</span><strong>Fokus Akademik</strong></div>
+</div>
+</div>
+</article>
+​<article class="reel" onclick="activateReel(this)">
+<div class="reel-head"><span>04 / PAIR</span><span>KOLABORASI</span></div>
+<div class="reel-vert">04 — Pair Partner</div>
+<div class="reel-body">
+<div>
+<h3>Pendamping Konsistensi Satu Partner</h3>
+<p>
+Satu akun terhubung dengan satu partner belajar sesama gender untuk menyusun target dan memantau perkembangan bersama. Berbagi data berlangsung atas persetujuan kedua pihak dan dapat dicabut kapan pun.
+</p>
+</div>
+<div class="reel-meta">
+<div><span>Kapasitas</span><strong>1 Partner Aktif</strong></div>
+<div><span>Kendali Data</span><strong>Persetujuan Penuh</strong></div>
+<div><span>Privasi</span><strong>Tanpa Chat & Lokasi</strong></div>
+</div>
+</div>
+</article>
+​<article class="reel" onclick="activateReel(this)">
+<div class="reel-head"><span>05 / PROFIL</span><span>PERKEMBANGAN</span></div>
+<div class="reel-vert">05 — Profil & Progres</div>
+<div class="reel-body">
+<div>
+<h3>Rekam Jejak Belajar yang Transparan</h3>
+<p>
+Satu pusat informasi untuk meninjau kemajuan roadmap, akurasi latihan soal, pencapaian akademik, riwayat pertandingan, serta pengaturan privasi akun secara mandiri.
+</p>
+</div>
+<div class="reel-meta">
+<div><span>Pembaruan</span><strong>Otomatis & Konsisten</strong></div>
+<div><span>Pelajar</span><strong>SMA XI–XII & UTBK</strong></div>
+<div><span>Pengelolaan</span><strong>Kontrol Privasi Mandiri</strong></div>
+</div>
+</div>
+</article>
+</div>
+</div>
+</section>
+​<!-- SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW -->
+<section class="scene scene-paper" data-idx="3">
+<div class="studio-grid">
+<div class="studio-copy">
+<div class="kicker">03 // PENGALAMAN VISUAL PRODUK</div>
+<h2>Papan Tulis Digital yang <em>Jernih & Tenang.</em></h2>
+<p>
+Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidup. Pelajar mengamati bagaimana suatu kurva bekerja dan alasan terbentuknya sebuah rumus sebelum memasuki tahap latihan.
+</p>
+<button class="btn-primary" onclick="openDoc('privacy')">Kebijakan Privasi & Ketentuan</button>
+</div>
+​<div class="device-frame">
+<div class="device-bar">
+<span>RASCADEMY CANVAS • MODE PAPAN TULIS</span>
+<div class="mode-pills">
+<button class="mode-pill on" id="pillWave" onclick="setBoardMode('wave')">Visual Kurva</button>
+<button class="mode-pill" id="pillOrbit" onclick="setBoardMode('orbit')">Relasi Fungsi</button>
+</div>
+</div>
+<canvas id="boardCanvas" width="640" height="300"></canvas>
+<div class="device-foot">
+<span id="boardCaption">Visualisasi titik pendekatan kontinu pada papan tulis digital.</span>
+<span style="font-family:var(--mono);font-size:0.68rem;color:var(--gold);">AUDIO: HANYA NARASI MATERI</span>
+</div>
+</div>
+</div>
+</section>
+​<!-- SCENE 4: ETHICAL CHARTER & MONUMENTAL BRAND LOCKUP -->
+<section class="scene scene-dark" data-idx="4">
+<div class="closing-inner">
+<div class="closing-head">
+<div class="kicker">04 // STANDAR KEPERCAYAAN RASCADEMY</div>
+<h2 class="eco-title">Dirancang untuk <em>Kenyamanan</em> Pelajar.</h2>
+</div>
+​<div class="pillars-row">
+<div class="pillar-card">
+<span>01 // HENING</span>
+<h4>Tanpa Notifikasi</h4>
+<p>Bebas push notification, SMS pengingat, maupun musik latar yang mengganggu ketenangan berpikir.</p>
+</div>
+<div class="pillar-card">
+<span>02 // ETIKA SOSIAL</span>
+<h4>Sesama Gender</h4>
+<p>Pencocokan Pair dan Cerdas Cermat berlangsung sesama gender tanpa fitur percakapan bebas.</p>
+</div>
+<div class="pillar-card">
+<span>03 // ORISINALITAS</span>
+<h4>Konten Berlisensi</h4>
+<p>Seluruh materi, soal latihan, dan aset visual disusun secara orisinal dengan lisensi yang jelas.</p>
+</div>
+<div class="pillar-card">
+<span>04 // PRIVASI</span>
+<h4>Kendali Pengguna</h4>
+<p>Persetujuan berbagi progres pada fitur Pair bersifat sukarela dan dapat dicabut kapan saja.</p>
+</div>
+</div>
+​<div class="monument-bar">
+<div class="wordmark-lockup">
+<svg viewBox="180 230 640 580" aria-label="Logo Rascademy">
+<use href="#rascademy-emblem-path" />
+</svg>
+<div class="wordmark-text">RASCADEMY</div>
+</div>
+​<div class="cta-row">
+<button class="btn-outline" onclick="openDoc('privacy')">Privacy Policy</button>
+<button class="btn-outline" onclick="openDoc('terms')">Terms of Use</button>
+<button class="btn-primary" onclick="goScene(0)">Ke Awal Halaman ↑</button>
+</div>
+</div>
+</div>
+</section>
+​</main>
+​<!-- BOTTOM SAFE-ZONE SPATIAL DOCK -->
+<div class="spatial-dock">
+<div class="dock-counter" id="dockCounter">01 / 05 — BERANDA</div>
+​<div class="dock-rail" id="dockRail">
+<button class="rail-dot active" onclick="goScene(0)" aria-label="Bagian 1"></button>
+<button class="rail-dot" onclick="goScene(1)" aria-label="Bagian 2"></button>
+<button class="rail-dot" onclick="goScene(2)" aria-label="Bagian 3"></button>
+<button class="rail-dot" onclick="goScene(3)" aria-label="Bagian 4"></button>
+<button class="rail-dot" onclick="goScene(4)" aria-label="Bagian 5"></button>
+</div>
+​<div class="dock-arrows">
+<button class="arrow-btn" onclick="stepScene(-1)" aria-label="Sebelumnya">←</button>
+<button class="arrow-btn" onclick="stepScene(1)" aria-label="Berikutnya">→</button>
+</div>
+</div>
+​<!-- DOCUMENT MODAL DRAWER -->
+<div class="drawer" id="docDrawer" onclick="closeDoc()">
+<div class="drawer-box" onclick="event.stopPropagation()">
+<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line-light);margin-bottom:18px;">
+<span id="drawerTag" style="font-family:var(--mono);font-size:0.7rem;color:var(--ember);font-weight:700;">DOKUMEN</span>
+<button onclick="closeDoc()" style="background:none;border:0;font-family:var(--mono);font-size:0.9rem;cursor:pointer;">✕</button>
+</div>
+<h3 id="drawerTitle" style="font-size:1.65rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:14px;"></h3>
+<div id="drawerBody" style="display:flex;flex-direction:column;gap:12px;font-size:0.95rem;line-height:1.68;color:#3B3832;"></div>
+</div>
+</div>
+​<script>
+const LOGO_PATH_STR = "M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z";
+​// 1. Smooth Flame + Logo Opening Curtain
+(function runSplash() {
+const c = document.getElementById('flameCanvas');
+const ctx = c.getContext('2d');
+const logoPath = new Path2D(LOGO_PATH_STR);
+let start = performance.now();
+let active = true;
+​function frame(now) {
+if (!active) return;
+const t = (now - start) / 1000;
+ctx.clearRect(0, 0, 480, 480);
+​const grad = ctx.createRadialGradient(240, 250, 12, 240, 250, 175 + Math.sin(t * 5) * 14);
+grad.addColorStop(0, 'rgba(255, 72, 20, 0.56)');
+grad.addColorStop(0.55, 'rgba(244, 185, 66, 0.16)');
+grad.addColorStop(1, 'rgba(5, 5, 5, 0)');
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, 480, 480);
+​for (let i = 0; i < 12; i++) {
+const p = ((t * 0.85 + i * 0.17) % 1);
+const x = 240 + Math.sin(t * 3 + i * 2.1) * (36 * (1 - p));
+const y = 320 - p * 190;
+const r = (1 - p) * 18;
+ctx.beginPath();
+ctx.arc(x, y, Math.max(1, r), 0, Math.PI * 2);
+ctx.fillStyle = rgba(255, ${Math.round(90 + p * 120)}, 30, ${(1 - p) * 0.34});
+ctx.fill();
+}
+​ctx.save();
+ctx.translate(240, 242);
+const s = 0.34 + Math.min(0.04, t * 0.04);
+ctx.scale(s, s);
+ctx.translate(-500, -520);
+ctx.fillStyle = '#F7F4ED';
+ctx.fill(logoPath);
+ctx.restore();
+​if (t < 1.15) {
+requestAnimationFrame(frame);
+} else {
+active = false;
+document.getElementById('splash').classList.add('done');
+}
+}
+requestAnimationFrame(frame);
+})();
+​// 2. ULTRA-SMOOTH SPRING INTERTIA ENGINE
+const SCENE_NAMES = ['BERANDA', 'PENDEKATAN', 'EKOSISTEM PRODUK', 'STUDIO VISUAL', 'STANDAR KEPERCAYAAN'];
+const scenes = Array.from(document.querySelectorAll('.scene'));
+const reels = Array.from(document.querySelectorAll('.reel'));
+const pillarCards = Array.from(document.querySelectorAll('.pillar-card'));
+const cineTop = document.getElementById('cineTop');
+const cineBot = document.getElementById('cineBot');
+const TOTAL_SCENES = scenes.length;
+​let currentScene = 0;
+let targetScene = 0;
+let smoothProgress = 0;
+let wheelLock = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTime = performance.now();
+​function goScene(idx) {
+targetScene = Math.max(0, Math.min(TOTAL_SCENES - 1, idx));
+if (targetScene !== currentScene) {
+currentScene = targetScene;
+for (let i = 0; i < TOTAL_SCENES; i++) {
+scenes[i].classList.toggle('is-current', i === currentScene);
+}
+updateDockUI();
+}
+}
+​function stepScene(dir) {
+goScene(currentScene + dir);
+}
+​function updateDockUI() {
+document.getElementById('dockCounter').textContent =
+0${currentScene + 1} / 0${TOTAL_SCENES} — ${SCENE_NAMES[currentScene]};
+document.querySelectorAll('.rail-dot').forEach((d, i) => d.classList.toggle('active', i === currentScene));
+document.querySelectorAll('.hud-link').forEach((l, i) => l.classList.toggle('active', i === currentScene));
+}
+​window.addEventListener('wheel', (e) => {
+if (document.getElementById('docDrawer').classList.contains('open')) return;
+const dominant = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+if (Math.abs(dominant) < 10) return;
+const now = performance.now();
+if (now - wheelLock < 450) return;
+wheelLock = now;
+stepScene(dominant > 0 ? 1 : -1);
+}, { passive: true });
+​window.addEventListener('keydown', (e) => {
+if (document.getElementById('docDrawer').classList.contains('open')) {
+if (e.key === 'Escape') closeDoc();
+return;
+}
+if (e.key === 'ArrowRight' || e.key === 'PageDown') stepScene(1);
+if (e.key === 'ArrowLeft' || e.key === 'PageUp') stepScene(-1);
+});
+​const viewport = document.getElementById('viewport');
+viewport.addEventListener('touchstart', (e) => {
+touchStartX = e.touches[0].clientX;
+touchStartY = e.touches[0].clientY;
+}, { passive: true });
+​viewport.addEventListener('touchend', (e) => {
+const dx = e.changedTouches[0].clientX - touchStartX;
+const dy = e.changedTouches[0].clientY - touchStartY;
+if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy)) {
+stepScene(dx < 0 ? 1 : -1);
+}
+}, { passive: true });
+​// 3. Out-of-the-Box Cinema Choreography + Monumental Kinetic Emblem with Spring Physics
+(function initSpatialStage() {
+const canvas = document.getElementById('heroField');
+const ctx = canvas.getContext('2d', { alpha: true });
+let W = 0, H = 0, dpr = 1;
+let basePoints = [];
+let particles = [];
+const mouse = { x: -9999, y: -9999, active: false };
+​const FORMATIONS = [
+{ ax: 0.74, ay: 0.48, rad: 0.49, rot: -0.04 },
+{ ax: 0.22, ay: 0.50, rad: 0.58, rot:  0.65 },
+{ ax: 0.85, ay: 0.23, rad: 0.25, rot: -0.25 },
+{ ax: 0.50, ay: 0.50, rad: 0.62, rot:  0.22 },
+{ ax: 0.84, ay: 0.19, rad: 0.22, rot:  0.00 }
+];
+​function lerp(a, b, t) { return a + (b - a) * t; }
+​function getFormationAt(prog) {
+const clamped = Math.max(0, Math.min(TOTAL_SCENES - 1, prog));
+const i0 = Math.floor(clamped);
+const i1 = Math.min(TOTAL_SCENES - 1, i0 + 1);
+const f = clamped - i0;
+const e = f * f * (3 - 2 * f);
+const A = FORMATIONS[i0], B = FORMATIONS[i1];
+return {
+ax: lerp(A.ax, B.ax, e),
+ay: lerp(A.ay, B.ay, e),
+rad: lerp(A.rad, B.rad, e),
+rot: lerp(A.rot, B.rot, e)
+};
+}
+​function sampleLogo() {
+dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+W = canvas.width = Math.floor(window.innerWidth * dpr);
+H = canvas.height = Math.floor(window.innerHeight * dpr);
+​const off = document.createElement('canvas');
+const size = 240;
+off.width = size;
+off.height = size;
+const octx = off.getContext('2d');
+const p2d = new Path2D(LOGO_PATH_STR);
+​octx.save();
+octx.translate(size / 2, size / 2);
+octx.scale(0.36, 0.36);
+octx.translate(-500, -520);
+octx.fillStyle = '#ffffff';
+octx.fill(p2d);
+octx.restore();
+​const img = octx.getImageData(0, 0, size, size).data;
+const step = window.innerWidth < 768 ? 7 : 6;
+const pts = [];
+​for (let y = 0; y < size; y += step) {
+for (let x = 0; x < size; x += step) {
+if (img[(y * size + x) * 4 + 3] > 128) {
+const isEdge = (
+img[((y - step) * size + x) * 4 + 3] < 128 ||
+img[((y + step) * size + x) * 4 + 3] < 128 ||
+img[(y * size + (x - step)) * 4 + 3] < 128 ||
+img[(y * size + (x + step)) * 4 + 3] < 128
+);
+pts.push({
+nx: (x - size / 2) / (size / 2),
+ny: (y - size / 2) / (size / 2),
+edge: isEdge
+});
+}
+}
+}
+basePoints = pts;
+if (particles.length !== pts.length) {
+particles = pts.map((pt) => ({
+x: W * 0.74 + (Math.random() - 0.5) * 220,
+y: H * 0.48 + (Math.random() - 0.5) * 220,
+vx: 0, vy: 0,
+r: (pt.edge ? 2.6 : 1.9) * dpr,
+edge: pt.edge,
+phase: Math.random() * Math.PI * 2
+}));
+}
+}
+​window.addEventListener('resize', sampleLogo);
+sampleLogo();
+​window.addEventListener('pointermove', (e) => {
+mouse.x = e.clientX * dpr;
+mouse.y = e.clientY * dpr;
+mouse.active = true;
+}, { passive: true });
+window.addEventListener('pointerleave', () => { mouse.active = false; });
+​function animate(now) {
+const dt = Math.min(0.05, (now - lastTime) * 0.001);
+lastTime = now;
+const t = now * 0.0014;
+​// Spring Interia Interpolation for 10000$ USD silky smooth feel
+const diff = targetScene - smoothProgress;
+smoothProgress += diff * Math.min(1, dt * 11.5);
+​const instVel = Math.abs(diff) * 3.2;
+​if (cineTop && cineBot) {
+const barShift = Math.abs(diff) * 18;
+cineTop.style.transform = translate3d(0, ${(-100 + barShift).toFixed(1)}%, 0);
+cineBot.style.transform = translate3d(0, ${(100 - barShift).toFixed(1)}%, 0);
+}
+​for (let i = 0; i < TOTAL_SCENES; i++) {
+const el = scenes[i];
+const d = i - smoothProgress;
+const absD = Math.abs(d);
+​if (absD > 1.12) {
+if (el.style.visibility !== 'hidden') {
+el.style.opacity = '0';
+el.style.visibility = 'hidden';
+}
+continue;
+}
+if (el.style.visibility !== 'visible') {
+el.style.visibility = 'visible';
+}
+​const reveal = Math.max(0, 1 - absD * 1.05);
+const ease = reveal * reveal * (3 - 2 * reveal);
+const inv = 1 - ease;
+​if (i === 0) {
+const zDepth = -absD * 520;
+const skewX = d * instVel * -6;
+el.style.opacity = String(ease);
+el.style.transform = translate3d(${(d * 30).toFixed(2)}vw, ${(d * -8).toFixed(2)}vh, ${zDepth.toFixed(1)}px) rotateY(${(d * -24).toFixed(2)}deg) skewX(${skewX.toFixed(2)}deg) scale3d(${(0.78 + ease * 0.22).toFixed(4)}, ${(0.78 + ease * 0.22).toFixed(4)}, 1);
+} else if (i === 1) {
+const slantTop = (inv * 100).toFixed(1);
+const slantBot = Math.min(100, inv * 138).toFixed(1);
+el.style.opacity = String(Math.min(1, ease * 1.3));
+el.style.clipPath = ease > 0.996
+? 'none'
+: polygon(${slantTop}% 0%, 100% 0%, 100% 100%, ${slantBot}% 100%);
+el.style.transform = translate3d(${(d * 14).toFixed(2)}vw, ${(inv * 6).toFixed(2)}vh, ${(-inv * 190).toFixed(1)}px) rotateX(${(inv * 14).toFixed(2)}deg) rotateZ(${(d * -3.2).toFixed(2)}deg) scale3d(${(0.89 + ease * 0.11).toFixed(4)}, ${(0.89 + ease * 0.11).toFixed(4)}, 1);
+} else if (i === 2) {
+el.style.opacity = String(ease);
+el.style.transform = translate3d(${(d * 42).toFixed(2)}vw, 0, ${(-absD * 280).toFixed(1)}px) rotateY(${(d * -18).toFixed(2)}deg);
+for (let r = 0; r < reels.length; r++) {
+const stagger = Math.max(0, Math.min(1, (ease - r * 0.035) / 0.85));
+const sInv = 1 - stagger;
+const fanX = (r - 2) * sInv * 24;
+const fanY = sInv * (68 + r * 18);
+const fanRot = (r - 2) * sInv * -7.5;
+reels[r].style.transform = ease > 0.996
+? 'none'
+: translate3d(${fanX.toFixed(1)}px, ${fanY.toFixed(1)}px, 0) rotateZ(${fanRot.toFixed(2)}deg);
+}
+} else if (i === 3) {
+const anamorphicHeight = Math.min(100, inv * 170).toFixed(1);
+const lensBlur = (inv * 18).toFixed(1);
+el.style.opacity = String(Math.min(1, ease * 1.35));
+el.style.filter = ease > 0.996 ? 'none' : blur(${lensBlur}px) brightness(${1 + inv * 0.35});
+el.style.clipPath = ease > 0.996
+? 'none'
+: inset(${anamorphicHeight}% 0% ${anamorphicHeight}% 0% round 32px);
+el.style.transform = translate3d(0, ${(inv * -35).toFixed(2)}vh, ${(-inv * 650).toFixed(1)}px) rotateX(${(inv * -26).toFixed(2)}deg) scale3d(${(0.74 + ease * 0.26).toFixed(4)}, ${(0.74 + ease * 0.26).toFixed(4)}, 1);
+} else if (i === 4) {
+el.style.opacity = String(ease);
+el.style.transform = translate3d(${(d * 32).toFixed(2)}vw, ${(inv * 12).toFixed(2)}vh, ${(-inv * 420).toFixed(1)}px) rotateX(${(inv * -20).toFixed(2)}deg) rotateY(${(d * -28).toFixed(2)}deg) rotateZ(${(d * 6.5).toFixed(2)}deg) scale3d(${(0.82 + ease * 0.18).toFixed(4)}, ${(0.82 + ease * 0.18).toFixed(4)}, 1);
+for (let c = 0; c < pillarCards.length; c++) {
+const lag = Math.max(0, Math.min(1, (ease - c * 0.055) / 0.78));
+const cEase = lag * lag * (3 - 2 * lag);
+pillarCards[c].style.opacity = String(cEase);
+pillarCards[c].style.transform = translate3d(0, ${((1 - cEase) * 56).toFixed(1)}px, 0) rotateX(${((1 - cEase) * 24).toFixed(1)}deg) scale3d(${(0.88 + cEase * 0.12).toFixed(4)}, ${(0.88 + cEase * 0.12).toFixed(4)}, 1);
+}
+}
+}
+​ctx.clearRect(0, 0, W, H);
+const form = getFormationAt(smoothProgress);
+const isMobile = window.innerWidth < 960;
+const anchorX = W * (isMobile ? 0.50 : form.ax);
+const anchorY = H * (isMobile ? 0.16 : form.ay);
+const radius = Math.min(W, H) * (isMobile ? 0.15 : form.rad);
+const dynamicRot = form.rot;
+const cosR = Math.cos(dynamicRot);
+const sinR = Math.sin(dynamicRot);
+const repulseR = 120 * dpr;
+const repulseR2 = repulseR * repulseR;
+​const edgePath = new Path2D();
+const innerPath = new Path2D();
+const hotPath = new Path2D();
+​for (let i = 0; i < particles.length; i++) {
+const p = particles[i];
+const bp = basePoints[i];
+const wave = Math.sin(t * 1.4 + p.phase) * 0.024;
+const rx = bp.nx * (1 + wave);
+const ry = bp.ny * (1 + wave);
+const tx = anchorX + (rx * cosR - ry * sinR) * radius;
+const ty = anchorY + (rx * sinR + ry * cosR) * radius;
+​if (mouse.active) {
+const dx = p.x - mouse.x;
+const dy = p.y - mouse.y;
+const d2 = dx * dx + dy * dy;
+if (d2 < repulseR2 && d2 > 0.01) {
+const dist = Math.sqrt(d2);
+const force = ((repulseR - dist) / repulseR) * 2.8 * dpr;
+p.vx += (dx / dist) * force;
+p.vy += (dy / dist) * force;
+}
+}
+​p.vx += (tx - p.x) * 0.14;
+p.vy += (ty - p.y) * 0.14;
+p.vx *= 0.78;
+p.vy *= 0.78;
+p.x += p.vx;
+p.y += p.vy;
+​const speed2 = p.vx * p.vx + p.vy * p.vy;
+const targetPath = speed2 > (2.6 * dpr * dpr) ? hotPath : (p.edge ? edgePath : innerPath);
+targetPath.moveTo(p.x + p.r, p.y);
+targetPath.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+}
+​ctx.fillStyle = 'rgba(247, 244, 237, 0.34)';
+ctx.fill(innerPath);
+ctx.fillStyle = 'rgba(247, 244, 237, 0.90)';
+ctx.fill(edgePath);
+ctx.fillStyle = '#FF4814';
+ctx.fill(hotPath);
+​requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+})();
+​// 4. Digital Whiteboard Visual Preview
+let boardMode = 'wave';
+function setBoardMode(mode) {
+boardMode = mode;
+document.getElementById('pillWave').classList.toggle('on', mode === 'wave');
+document.getElementById('pillOrbit').classList.toggle('on', mode === 'orbit');
+document.getElementById('boardCaption').textContent = mode === 'wave'
+? 'Visualisasi titik pendekatan kontinu pada papan tulis digital.'
+: 'Pemetaan hubungan antarfungsi dengan grafik bersih tanpa distraksi.';
+}
+​(function runBoardPreview() {
+const c = document.getElementById('boardCanvas');
+const ctx = c.getContext('2d');
+​function draw(now) {
+if (Math.abs(smoothProgress - 3) < 1.2) {
+const t = now * 0.0018;
+ctx.clearRect(0, 0, 640, 300);
+​ctx.strokeStyle = 'rgba(247, 244, 237, 0.07)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+for (let x = 40; x < 640; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, 300); }
+for (let y = 30; y < 300; y += 30) { ctx.moveTo(0, y); ctx.lineTo(640, y); }
+ctx.stroke();
+​ctx.strokeStyle = 'rgba(247, 244, 237, 0.25)';
+ctx.beginPath();
+ctx.moveTo(40, 150); ctx.lineTo(600, 150);
+ctx.moveTo(320, 24); ctx.lineTo(320, 276);
+ctx.stroke();
+​if (boardMode === 'wave') {
+ctx.strokeStyle = '#F7F4ED';
+ctx.lineWidth = 2.5;
+ctx.beginPath();
+for (let px = 60; px <= 580; px += 4) {
+const nx = (px - 320) / 90;
+const py = 150 - Math.sin(nx + t * 0.5) * 68 - Math.cos(nx * 0.6) * 22;
+if (px === 60) ctx.moveTo(px, py);
+else ctx.lineTo(px, py);
+}
+ctx.stroke();
+​const focusX = 320 + Math.sin(t * 0.9) * 140;
+const fnx = (focusX - 320) / 90;
+const focusY = 150 - Math.sin(fnx + t * 0.5) * 68 - Math.cos(fnx * 0.6) * 22;
+​ctx.strokeStyle = 'rgba(255, 72, 20, 0.5)';
+ctx.setLineDash([4, 4]);
+ctx.beginPath();
+ctx.moveTo(focusX, 150); ctx.lineTo(focusX, focusY);
+ctx.moveTo(320, focusY); ctx.lineTo(focusX, focusY);
+ctx.stroke();
+ctx.setLineDash([]);
+​ctx.fillStyle = '#FF4814';
+ctx.beginPath(); ctx.arc(focusX, focusY, 7, 0, Math.PI * 2); ctx.fill();
+ctx.strokeStyle = '#F7F4ED';
+ctx.lineWidth = 2;
+ctx.stroke();
+} else {
+ctx.strokeStyle = '#F4B942';
+ctx.lineWidth = 2.5;
+ctx.beginPath();
+for (let px = 110; px <= 530; px += 4) {
+const nx = (px - 320) / 110;
+const py = 215 - (nx * nx) * 52 + Math.sin(t) * 12;
+if (px === 110) ctx.moveTo(px, py);
+else ctx.lineTo(px, py);
+}
+ctx.stroke();
+​const vx = 320;
+const vy = 215 + Math.sin(t) * 12;
+ctx.fillStyle = '#FF4814';
+ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
+}
+}
+requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+})();
+​// 5. GPU-Accelerated Cursor Follower
+const ring = document.getElementById('cursorRing');
+window.addEventListener('pointermove', (e) => {
+if (!ring) return;
+ring.style.transform = translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%);
+}, { passive: true });
+document.querySelectorAll('button, .reel, .pillar-card').forEach((el) => {
+el.addEventListener('mouseenter', () => ring && ring.classList.add('expand'));
+el.addEventListener('mouseleave', () => ring && ring.classList.remove('expand'));
+});
+​// 6. Product Reel Switcher
+function activateReel(card) {
+document.querySelectorAll('.reel').forEach((c) => c.classList.remove('active'));
+card.classList.add('active');
+}
+​// 7. Policy Drawer
+const DOC_DATA = {
+privacy: {
+tag: 'KEBIJAKAN PRIVASI • RASCADEMY',
+title: 'Transparansi Data & Perlindungan Pelajar',
+items: [
+'<strong>Informasi yang Digunakan:</strong> Rascademy mengelola informasi akun dasar, jenis kelamin (untuk pencocokan sesama gender pada Pair dan Cerdas Cermat), progres belajar, dan riwayat latihan.',
+'<strong>Tanpa Layanan Percakapan:</strong> Aplikasi hadir tanpa fitur chat teks, suara, maupun video antarpengguna serta tidak menyimpan isi percakapan apa pun.',
+'<strong>Persetujuan pada Fitur Pair:</strong> Berbagi progres dan target belajar berlangsung atas persetujuan kedua pengguna dan dapat dicabut kapan pun.',
+'<strong>Lingkungan Tenang Tanpa Notifikasi:</strong> Rascademy beroperasi tanpa push notification, SMS, maupun email pengingat.'
+]
+},
+terms: {
+tag: 'KETENTUAN PENGGUNAAN • RASCADEMY',
+title: 'Pedoman Layanan Pembelajaran',
+items: [
+'<strong>Fokus Akademik:</strong> Layanan Rascademy disediakan sebagai sarana pembelajaran matematika berbasis pemahaman konsep secara mandiri dan kolaboratif.',
+'<strong>Hak Cipta Konten:</strong> Materi papan tulis digital, grafik, soal latihan, dan identitas visual Rascademy dilindungi hak cipta serta ditujukan bagi keperluan belajar pribadi.',
+'<strong>Sportivitas Kompetisi:</strong> Cerdas Cermat berlangsung secara akademik, gratis tanpa biaya pendaftaran, bebas dari unsur taruhan, dan mencocokkan peserta sesama gender.'
+]
+}
+};
+​function openDoc(key) {
+const d = DOC_DATA[key];
+document.getElementById('drawerTag').textContent = d.tag;
+document.getElementById('drawerTitle').textContent = d.title;
+document.getElementById('drawerBody').innerHTML = d.items.map((t) => <p>${t}</p>).join('');
+document.getElementById('docDrawer').classList.add('open');
+}
+function closeDoc() {
+document.getElementById('docDrawer').classList.remove('open');
+}
+</script>
 </body>
 </html>
