@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Rascademy — Petualangan Hutan</title>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
@@ -313,6 +312,42 @@ const Q=[
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 let db = null, auth = null, fbUid = null, unsubPlayers = null, unsubInvites = null, unsubRoom = null, hbTimer = null;
 const ONLINE_USERS = {};
+const BC = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('rascademy_live_' + appId) : null;
+
+if(BC){
+  BC.onmessage = (ev) => {
+    const msg = ev.data;
+    if(!msg) return;
+    if(msg.type === 'PLAYER_SYNC' && msg.profile){
+      ONLINE_USERS[msg.profile.uid] = msg.profile;
+      if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+    }else if(msg.type === 'PLAYER_OFFLINE' && msg.uid){
+      if(ONLINE_USERS[msg.uid]) ONLINE_USERS[msg.uid].online = false;
+      if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+    }else if(msg.type === 'REQUEST_PRESENCE' && S.user && S.w){
+      broadcastPresence();
+    }else if(msg.type === 'DUEL_INVITE' && S.user && msg.inv?.toUid === S.user.uid){
+      if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
+        showIncomingDuelModal(msg.inv);
+      }
+    }else if(msg.type === 'DUEL_RESP' && S.user && msg.fromUid === S.user.uid){
+      if(msg.status === 'accepted' && msg.roomId && (!S.du || S.du.roomId !== msg.roomId)){
+        $('#modal').innerHTML = '';
+        joinLiveRoom(msg.roomId, msg.toName);
+      }else if(msg.status === 'declined'){
+        if($('#modal').innerHTML.includes('Menunggu')){
+          $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${msg.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
+        }
+      }
+    }else if(msg.type === 'ROOM_UPDATE' && S.du && S.du.roomId === msg.roomId && msg.room){
+      applyRoomState(msg.room);
+    }
+  };
+}
+
+function makeSessionUid(){
+  return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+}
 
 async function initCloud(){
   if(db && auth?.currentUser) return true;
@@ -327,7 +362,7 @@ async function initCloud(){
     }else{
       await signInAnonymously(auth);
     }
-    fbUid = auth.currentUser?.uid || ('guest_' + Math.random().toString(36).slice(2,10));
+    fbUid = auth.currentUser?.uid || null;
     return true;
   }catch(e){
     console.error('Cloud init fallback:', e);
@@ -403,28 +438,45 @@ function cele(t,s){$('#modal').innerHTML=`<div class='ov'><section class='pn scr
 function cm(){$('#modal').innerHTML='';render()}
 function saveMap(){if(S.w){S.w.px=Math.round(P.x);S.w.py=Math.round(P.y);syncUserCloud()}}
 
+function buildPublicProfile(){
+  const st = stats(S.w);
+  return {
+    uid: S.user.uid,
+    authUid: fbUid || '',
+    name: S.user.name,
+    g: S.user.g,
+    gr: S.user.gr,
+    lv: S.w.lv,
+    d: st.d,
+    pc: st.pc,
+    dw: st.dw,
+    dn: st.dn,
+    pct: st.pct,
+    act: S.w.act.slice(0, 5),
+    lastSeen: Date.now(),
+    online: true
+  };
+}
+
+function broadcastPresence(){
+  if(!S.user || !S.w) return;
+  const prof = buildPublicProfile();
+  ONLINE_USERS[prof.uid] = prof;
+  if(BC) BC.postMessage({ type: 'PLAYER_SYNC', profile: prof });
+}
+
 async function syncUserCloud(){
-  if(!db || !auth?.currentUser || !S.user || !S.w) return;
+  if(!S.user || !S.w) return;
+  const publicProfile = buildPublicProfile();
+  ONLINE_USERS[publicProfile.uid] = publicProfile;
+  if(BC) BC.postMessage({ type: 'PLAYER_SYNC', profile: publicProfile });
+  if(!db || !auth?.currentUser) return;
   try{
-    const st = stats(S.w);
-    const publicProfile = {
-      uid: S.user.uid,
-      name: S.user.name,
-      g: S.user.g,
-      gr: S.user.gr,
-      lv: S.w.lv,
-      d: st.d,
-      pc: st.pc,
-      dw: st.dw,
-      dn: st.dn,
-      pct: st.pct,
-      act: S.w.act.slice(0, 5),
-      lastSeen: Date.now(),
-      online: true
-    };
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), publicProfile, { merge: true });
-    const privateSave = { ...S.w, exp: null };
-    await setDoc(doc(db, 'artifacts', appId, 'users', S.user.uid, 'profile', 'state'), privateSave, { merge: true });
+    if(fbUid){
+      const privateSave = { ...S.w, exp: null };
+      await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), privateSave, { merge: true });
+    }
   }catch(e){}
 }
 
@@ -488,27 +540,32 @@ function loopSakura(){
 loopSakura();
 
 function startRealtimeListeners(){
-  if(!db || !auth?.currentUser || !S.user) return;
+  if(!S.user) return;
   if(unsubPlayers) unsubPlayers();
   if(unsubInvites) unsubInvites();
   if(hbTimer) clearInterval(hbTimer);
 
-  // Heartbeat setiap 15 detik agar status online real-time akurat
+  if(BC) BC.postMessage({ type: 'REQUEST_PRESENCE' });
+
+  // Heartbeat setiap 10 detik agar status online real-time selalu segar
   hbTimer = setInterval(()=>{
-    if(db && auth?.currentUser && S.user){
-      updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { lastSeen: Date.now(), online: true }).catch(()=>{});
+    if(!S.user) return;
+    broadcastPresence();
+    if(db && auth?.currentUser){
+      setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), buildPublicProfile(), { merge: true }).catch(()=>{});
     }
-  }, 15000);
+  }, 10000);
+
+  if(!db || !auth?.currentUser) return;
 
   // Dengarkan semua pemain real yang login
   unsubPlayers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snap)=>{
-    const seenIds = new Set();
     snap.forEach(d=>{
       const data = d.data();
-      seenIds.add(d.id);
-      ONLINE_USERS[d.id] = data;
+      if(data && data.uid){
+        ONLINE_USERS[data.uid] = data;
+      }
     });
-    Object.keys(ONLINE_USERS).forEach(k=>{ if(!seenIds.has(k)) delete ONLINE_USERS[k]; });
     if(!S.du && (S.tab==='duel' || S.tab==='profil' || S.viewProf)) render();
   }, (err)=>console.error(err));
 
@@ -516,7 +573,7 @@ function startRealtimeListeners(){
   unsubInvites = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'duel_invites'), (snap)=>{
     snap.forEach(d=>{
       const inv = { id: d.id, ...d.data() };
-      if(inv.toUid === S.user.uid && inv.status === 'pending' && Date.now() - (inv.createdAt||0) < 45000){
+      if(inv.toUid === S.user.uid && inv.status === 'pending' && Date.now() - (inv.createdAt||0) < 60000){
         if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
           showIncomingDuelModal(inv);
         }
@@ -547,20 +604,32 @@ function showIncomingDuelModal(inv){
   </section></div>`;
 }
 
+const LOCAL_INVITES = {};
+const LOCAL_ROOMS = {};
+
 async function respondInvite(invId, accept){
-  if(!db || !auth?.currentUser) return;
-  const invRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId);
+  const localInv = LOCAL_INVITES[invId];
   if(!accept){
-    await updateDoc(invRef, { status: 'declined' }).catch(()=>{});
+    if(localInv && BC){
+      BC.postMessage({ type: 'DUEL_RESP', invId, fromUid: localInv.fromUid, toName: S.user.name, status: 'declined' });
+    }
+    if(db && auth?.currentUser){
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), { status: 'declined' }).catch(()=>{});
+    }
     cm();
     return;
   }
-  const snap = await getDoc(invRef);
-  if(!snap.exists()){ cm(); return; }
-  const inv = snap.data();
+
+  let inv = localInv;
+  if(!inv && db && auth?.currentUser){
+    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>null);
+    if(snap && snap.exists()) inv = snap.data();
+  }
+  if(!inv){ cm(); return; }
+
   const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
   const qs = shuf(Q.slice()).slice(0,4).map(q=>({ cat:q[0], q:q[1], opts:q[2], ans:q[3], exp:q[4] }));
-  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), {
+  const roomData = {
     p1: { uid: inv.fromUid, name: inv.fromName, score: 0 },
     p2: { uid: S.user.uid, name: S.user.name, score: 0 },
     qs,
@@ -573,8 +642,16 @@ async function respondInvite(invId, accept){
     roundEndsAt: Date.now() + 12000,
     done: false,
     updatedAt: Date.now()
-  });
-  await updateDoc(invRef, { status: 'accepted', roomId });
+  };
+  LOCAL_ROOMS[roomId] = roomData;
+  if(BC){
+    BC.postMessage({ type: 'ROOM_UPDATE', roomId, room: roomData });
+    BC.postMessage({ type: 'DUEL_RESP', invId, fromUid: inv.fromUid, toName: S.user.name, status: 'accepted', roomId });
+  }
+  if(db && auth?.currentUser){
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), roomData).catch(()=>{});
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), { status: 'accepted', roomId }).catch(()=>{});
+  }
   cm();
   joinLiveRoom(roomId, inv.fromName);
 }
@@ -686,18 +763,9 @@ async function loginGuest(){
   const gen = $('#gGen')?.value || 'Laki-laki';
   const gr = $('#gGrade')?.value || 'Kelas XII SMA';
   await initCloud();
-  const uid = fbUid || ('guest_' + Date.now());
+  const uid = makeSessionUid();
   S.user = { uid, name: rawName, g: gen, gr, isGuest: true };
   S.w = newWs(0);
-  if(db && auth?.currentUser){
-    try{
-      const privSnap = await getDoc(doc(db, 'artifacts', appId, 'users', uid, 'profile', 'state'));
-      if(privSnap.exists()){
-        const saved = privSnap.data();
-        S.w = { ...newWs(0), ...saved, exp: null };
-      }
-    }catch(e){}
-  }
   P.x = S.w.px || 320; P.y = S.w.py || 900; camX = P.x; camY = P.y;
   S.tab = 'belajar'; S.les = null; S.pr = null; S.du = null;
   INTRO = S.w.seen ? null : 0; INTI = 0;
@@ -792,29 +860,89 @@ function openPlayerProfile(uid){
 
 async function challengePlayer(targetUid){
   const target = ONLINE_USERS[targetUid];
-  if(!target || !db || !auth?.currentUser) return;
+  if(!target) return;
   const invId = 'inv_' + S.user.uid + '_' + targetUid + '_' + Date.now();
-  $('#modal').innerHTML = `<div class='ov'><section class='pn' style='text-align:center'>
-    <div class='tag'>MENANTANG PEMAIN</div>
-    <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>Menunggu ${target.name}...</h2>
-    <p class='mut'>Undangan duel Cerdas Cermat sudah dikirim ke layar ${target.name}.</p>
-    <button class='btn gh w' style='margin-top:12px' onclick='cancelInvite("${invId}")'>Batalkan</button>
-  </section></div>`;
-  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), {
+  const invObj = {
+    id: invId,
     fromUid: S.user.uid,
     fromName: S.user.name,
     toUid: targetUid,
     toName: target.name,
     status: 'pending',
     createdAt: Date.now()
-  });
+  };
+  LOCAL_INVITES[invId] = invObj;
+  $('#modal').innerHTML = `<div class='ov'><section class='pn' style='text-align:center'>
+    <div class='tag'>MENANTANG PEMAIN</div>
+    <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>Menunggu ${target.name}...</h2>
+    <p class='mut'>Undangan duel Cerdas Cermat sudah dikirim ke layar ${target.name}.</p>
+    <button class='btn gh w' style='margin-top:12px' onclick='cancelInvite("${invId}")'>Batalkan</button>
+  </section></div>`;
+  if(BC) BC.postMessage({ type: 'DUEL_INVITE', inv: invObj });
+  if(db && auth?.currentUser){
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), invObj).catch(()=>{});
+  }
 }
 
 async function cancelInvite(invId){
+  delete LOCAL_INVITES[invId];
   if(db && auth?.currentUser){
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>{});
   }
   cm();
+}
+
+function applyRoomState(r){
+  if(!S.du || !r) return;
+  LOCAL_ROOMS[S.du.roomId] = r;
+  const isP1 = r.p1.uid === S.user.uid;
+  const meObj = isP1 ? r.p1 : r.p2;
+  const opObj = isP1 ? r.p2 : r.p1;
+  S.du.on = opObj.name;
+  S.du.us = meObj.score;
+  S.du.os = opObj.score;
+  S.du.qs = r.qs.map(x=>[x.cat, x.q, x.opts, x.ans, x.exp]);
+  S.du.i = r.i;
+  S.du.roundEndsAt = r.roundEndsAt || (Date.now()+10000);
+  S.du.t = Math.max(0, Math.ceil((S.du.roundEndsAt - Date.now())/1000));
+  S.du.el = r.el;
+  S.du.ch = r.ch;
+  S.du.msg = r.msg;
+  S.du.done = r.done;
+
+  if(r.ph === 'buzz') S.du.ph = 'buzz';
+  else if(r.ph === 'ans') S.du.ph = (r.holder === S.user.uid) ? 'me' : 'opp';
+  else if(r.ph === 'rebound') S.du.ph = (r.holder === S.user.uid) ? 'rbme' : 'rbop';
+  else if(r.ph === 'rev') S.du.ph = 'rev';
+
+  if(r.done && !S.du.recorded){
+    S.du.recorded = true;
+    clearInterval(S.du.iv);
+    S.du.o = S.du.us > S.du.os ? 'Menang' : (S.du.us === S.du.os ? 'Seri' : 'Kalah');
+    S.w.duel.unshift({ o: S.du.o, on: S.du.on + ' (Real)', us: S.du.us, os: S.du.os });
+    act('Duel Real vs ' + S.du.on, S.du.o + ' (' + S.du.us + '-' + S.du.os + ')');
+    ign();
+    cele(S.du.o === 'Menang' ? 'Kemenangan Duel Real!' : 'Duel Real Selesai!', 'Skor akhir ' + S.du.us + ' - ' + S.du.os + ' melawan ' + S.du.on + '.');
+  }
+  render();
+}
+
+async function pushRoomUpdate(roomId, patch){
+  const cur = LOCAL_ROOMS[roomId];
+  if(cur){
+    const next = JSON.parse(JSON.stringify(cur));
+    Object.keys(patch).forEach(k=>{
+      if(k==='p1.score') next.p1.score = patch[k];
+      else if(k==='p2.score') next.p2.score = patch[k];
+      else next[k] = patch[k];
+    });
+    LOCAL_ROOMS[roomId] = next;
+    applyRoomState(next);
+    if(BC) BC.postMessage({ type: 'ROOM_UPDATE', roomId, room: next });
+  }
+  if(db && auth?.currentUser){
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), patch).catch(()=>{});
+  }
 }
 
 function joinLiveRoom(roomId, oppName){
@@ -837,46 +965,19 @@ function joinLiveRoom(roomId, oppName){
     recorded: false
   };
   S.du.iv = setInterval(tickLiveDuel, 500);
-  unsubRoom = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), (snap)=>{
-    if(!snap.exists() || !S.du || S.du.roomId !== roomId) return;
-    const r = snap.data();
-    const isP1 = r.p1.uid === S.user.uid;
-    const meObj = isP1 ? r.p1 : r.p2;
-    const opObj = isP1 ? r.p2 : r.p1;
-    S.du.on = opObj.name;
-    S.du.us = meObj.score;
-    S.du.os = opObj.score;
-    S.du.qs = r.qs.map(x=>[x.cat, x.q, x.opts, x.ans, x.exp]);
-    S.du.i = r.i;
-    S.du.roundEndsAt = r.roundEndsAt || (Date.now()+10000);
-    S.du.t = Math.max(0, Math.ceil((S.du.roundEndsAt - Date.now())/1000));
-    S.du.el = r.el;
-    S.du.ch = r.ch;
-    S.du.msg = r.msg;
-    S.du.done = r.done;
-
-    if(r.ph === 'buzz') S.du.ph = 'buzz';
-    else if(r.ph === 'ans') S.du.ph = (r.holder === S.user.uid) ? 'me' : 'opp';
-    else if(r.ph === 'rebound') S.du.ph = (r.holder === S.user.uid) ? 'rbme' : 'rbop';
-    else if(r.ph === 'rev') S.du.ph = 'rev';
-
-    if(r.done && !S.du.recorded){
-      S.du.recorded = true;
-      clearInterval(S.du.iv);
-      S.du.o = S.du.us > S.du.os ? 'Menang' : (S.du.us === S.du.os ? 'Seri' : 'Kalah');
-      S.w.duel.unshift({ o: S.du.o, on: S.du.on + ' (Real)', us: S.du.us, os: S.du.os });
-      act('Duel Real vs ' + S.du.on, S.du.o + ' (' + S.du.us + '-' + S.du.os + ')');
-      ign();
-      cele(S.du.o === 'Menang' ? 'Kemenangan Duel Real!' : 'Duel Real Selesai!', 'Skor akhir ' + S.du.us + ' - ' + S.du.os + ' melawan ' + S.du.on + '.');
-    }
-    render();
-  }, (err)=>console.error(err));
+  if(LOCAL_ROOMS[roomId]) applyRoomState(LOCAL_ROOMS[roomId]);
+  if(db && auth?.currentUser){
+    unsubRoom = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), (snap)=>{
+      if(!snap.exists() || !S.du || S.du.roomId !== roomId) return;
+      applyRoomState(snap.data());
+    }, (err)=>console.error(err));
+  }
   render();
 }
 
 async function tickLiveDuel(){
   const m = S.du;
-  if(!m || !m.live || m.done || !db || !auth?.currentUser) return;
+  if(!m || !m.live || m.done) return;
   const rem = Math.max(0, Math.ceil(((m.roundEndsAt||Date.now()) - Date.now())/1000));
   m.t = rem;
   const el = document.getElementById('dtm');
@@ -885,14 +986,15 @@ async function tickLiveDuel(){
   if(rem === 0 && !m.tLock){
     m.tLock = true;
     setTimeout(()=>{ if(S.du) S.du.tLock = false; }, 1500);
-    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
-    const snap = await getDoc(roomRef);
-    if(!snap.exists()) return;
-    const r = snap.data();
-    if(r.done) return;
+    let r = LOCAL_ROOMS[m.roomId];
+    if(!r && db && auth?.currentUser){
+      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
+      if(snap && snap.exists()) r = snap.data();
+    }
+    if(!r || r.done) return;
     const q = r.qs[r.i];
     if(r.ph === 'buzz' && r.p1.uid === S.user.uid){
-      await updateDoc(roomRef, { ph: 'rev', msg: 'Waktu habis! Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
+      await pushRoomUpdate(m.roomId, { ph: 'rev', msg: 'Waktu habis! Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
       setTimeout(()=>advanceLiveRound(m.roomId), 2000);
     }else if(r.ph === 'ans' && r.holder === S.user.uid){
       const isP1 = r.p1.uid === S.user.uid;
@@ -900,23 +1002,23 @@ async function tickLiveDuel(){
       const oppName = isP1 ? r.p2.name : r.p1.name;
       const upd = { ph: 'rebound', holder: oppUid, msg: S.user.name + ' kehabisan waktu (−50)! Lemparan ke ' + oppName + '.', roundEndsAt: Date.now()+8000 };
       if(isP1) upd['p1.score'] = r.p1.score - 50; else upd['p2.score'] = r.p2.score - 50;
-      await updateDoc(roomRef, upd);
+      await pushRoomUpdate(m.roomId, upd);
     }else if(r.ph === 'rebound' && r.holder === S.user.uid){
-      await updateDoc(roomRef, { ph: 'rev', msg: 'Lemparan habis waktu. Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
+      await pushRoomUpdate(m.roomId, { ph: 'rev', msg: 'Lemparan habis waktu. Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
       setTimeout(()=>advanceLiveRound(m.roomId), 2000);
     }
   }
 }
 
 async function advanceLiveRound(roomId){
-  if(!db || !auth?.currentUser) return;
-  const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId);
-  const snap = await getDoc(roomRef);
-  if(!snap.exists()) return;
-  const r = snap.data();
-  if(r.done) return;
+  let r = LOCAL_ROOMS[roomId];
+  if(!r && db && auth?.currentUser){
+    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId)).catch(()=>null);
+    if(snap && snap.exists()) r = snap.data();
+  }
+  if(!r || r.done) return;
   if(r.i + 1 < r.qs.length){
-    await updateDoc(roomRef, {
+    await pushRoomUpdate(roomId, {
       i: r.i + 1,
       ph: 'buzz',
       holder: null,
@@ -926,7 +1028,7 @@ async function advanceLiveRound(roomId){
       roundEndsAt: Date.now() + 12000
     });
   }else{
-    await updateDoc(roomRef, { done: true, ph: 'rev', msg: 'Pertandingan selesai!' });
+    await pushRoomUpdate(roomId, { done: true, ph: 'rev', msg: 'Pertandingan selesai!' });
   }
 }
 
@@ -1089,13 +1191,13 @@ function oppBuzz(){const m=S.du;if(!m||m.live||m.ph!=='buzz')return;clearTimeout
 async function buzz(){
   const m=S.du;if(!m||m.ph!=='buzz')return;
   if(m.live){
-    if(!db || !auth?.currentUser) return;
-    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
-    const snap = await getDoc(roomRef);
-    if(!snap.exists()) return;
-    const r = snap.data();
-    if(r.ph !== 'buzz') return;
-    await updateDoc(roomRef, {
+    let r = LOCAL_ROOMS[m.roomId];
+    if(!r && db && auth?.currentUser){
+      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
+      if(snap && snap.exists()) r = snap.data();
+    }
+    if(!r || r.ph !== 'buzz') return;
+    await pushRoomUpdate(m.roomId, {
       ph: 'ans',
       holder: S.user.uid,
       msg: S.user.name + ' menekan BEL duluan! Memilih jawaban...',
@@ -1108,12 +1210,12 @@ async function buzz(){
 async function ans(i){
   const m=S.du;if(!m)return;const q=m.qs[m.i];
   if(m.live){
-    if(!db || !auth?.currentUser) return;
-    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
-    const snap = await getDoc(roomRef);
-    if(!snap.exists()) return;
-    const r = snap.data();
-    if(r.holder !== S.user.uid) return;
+    let r = LOCAL_ROOMS[m.roomId];
+    if(!r && db && auth?.currentUser){
+      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
+      if(snap && snap.exists()) r = snap.data();
+    }
+    if(!r || r.holder !== S.user.uid) return;
     const isP1 = r.p1.uid === S.user.uid;
     const oppUid = isP1 ? r.p2.uid : r.p1.uid;
     const oppName = isP1 ? r.p2.name : r.p1.name;
@@ -1121,20 +1223,20 @@ async function ans(i){
       if(i === q[3]){
         const upd = { ph: 'rev', ch: i, msg: S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 };
         if(isP1) upd['p1.score'] = r.p1.score + 100; else upd['p2.score'] = r.p2.score + 100;
-        await updateDoc(roomRef, upd);
+        await pushRoomUpdate(m.roomId, upd);
         setTimeout(()=>advanceLiveRound(m.roomId), 2000);
       }else{
         const upd = { ph: 'rebound', holder: oppUid, el: i, msg: S.user.name + ' salah (−50)! Lemparan ke ' + oppName + '...', roundEndsAt: Date.now()+8000 };
         if(isP1) upd['p1.score'] = r.p1.score - 50; else upd['p2.score'] = r.p2.score - 50;
-        await updateDoc(roomRef, upd);
+        await pushRoomUpdate(m.roomId, upd);
       }
     }else if(r.ph === 'rebound'){
       if(i === q[3]){
         const upd = { ph: 'rev', ch: i, msg: S.user.name + ' tepat menjawab lemparan (+100)! Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 };
         if(isP1) upd['p1.score'] = r.p1.score + 100; else upd['p2.score'] = r.p2.score + 100;
-        await updateDoc(roomRef, upd);
+        await pushRoomUpdate(m.roomId, upd);
       }else{
-        await updateDoc(roomRef, { ph: 'rev', ch: i, msg: 'Lemparan kurang tepat. Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 });
+        await pushRoomUpdate(m.roomId, { ph: 'rev', ch: i, msg: 'Lemparan kurang tepat. Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 });
       }
       setTimeout(()=>advanceLiveRound(m.roomId), 2000);
     }
@@ -1145,9 +1247,7 @@ async function ans(i){
 async function pass(){
   const m=S.du;if(!m||m.ph!=='rbme')return;
   if(m.live){
-    if(!db || !auth?.currentUser) return;
-    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
-    await updateDoc(roomRef, { ph: 'rev', msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[m.qs[m.i][3]] + '.', roundEndsAt: Date.now()+2000 });
+    await pushRoomUpdate(m.roomId, { ph: 'rev', msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[m.qs[m.i][3]] + '.', roundEndsAt: Date.now()+2000 });
     setTimeout(()=>advanceLiveRound(m.roomId), 2000);
     return;
   }
@@ -1206,8 +1306,12 @@ function tabProfil(){
 async function logout(){
   saveMap();
   exitDuel();
-  if(db && auth?.currentUser && S.user){
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { online: false, lastSeen: Date.now() }).catch(()=>{});
+  if(S.user){
+    if(ONLINE_USERS[S.user.uid]) ONLINE_USERS[S.user.uid].online = false;
+    if(BC) BC.postMessage({ type: 'PLAYER_OFFLINE', uid: S.user.uid });
+    if(db && auth?.currentUser){
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { online: false, lastSeen: Date.now() }).catch(()=>{});
+    }
   }
   if(unsubPlayers){ unsubPlayers(); unsubPlayers = null; }
   if(unsubInvites){ unsubInvites(); unsubInvites = null; }
