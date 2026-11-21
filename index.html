@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -329,14 +330,17 @@ width: 100%;
 margin: 0 auto;
 display: flex;
 flex-direction: column;
-justify-content: center;
+justify-content: space-between;
+height: 100%;
+padding-block: clamp(8px, 1.5vh, 18px);
 }
 .manifesto-quote {
 font-family: var(--editorial);
-font-size: clamp(1.45rem, 3.2vw, 3.15rem);
-line-height: 1.16;
+font-size: clamp(1.3rem, 2.7vw, 2.75rem);
+line-height: 1.15;
 letter-spacing: -0.02em;
-margin-bottom: clamp(20px, 3.2vh, 34px);
+margin-block: auto;
+padding-block: clamp(12px, 2vh, 24px);
 }
 .manifesto-quote span {
 color: var(--ember);
@@ -346,26 +350,26 @@ font-style: italic;
 display: grid;
 grid-template-columns: 1fr 1fr;
 border-top: 1px solid var(--line-light);
-padding-top: clamp(18px, 2.6vh, 26px);
-gap: clamp(20px, 4vw, 48px);
+padding-top: clamp(16px, 2.4vh, 24px);
+gap: clamp(20px, 3.5vw, 44px);
 }
 .shift-col small {
 display: block;
 font-family: var(--mono);
-font-size: 0.66rem;
+font-size: 0.64rem;
 letter-spacing: 0.14em;
-margin-bottom: 6px;
+margin-bottom: 5px;
 color: #77736A;
 }
 .shift-col h3 {
-font-size: clamp(1.12rem, 1.7vw, 1.42rem);
+font-size: clamp(1.05rem, 1.55vw, 1.35rem);
 font-weight: 800;
 letter-spacing: -0.03em;
-margin-bottom: 6px;
+margin-bottom: 5px;
 }
 .shift-col p {
-font-size: clamp(0.86rem, 1vw, 0.96rem);
-line-height: 1.6;
+font-size: clamp(0.82rem, 0.95vw, 0.94rem);
+line-height: 1.54;
 color: #46433C;
 }
 
@@ -1516,3 +1520,4 @@ card.classList.add('active');
 </script>
 </body>
 </html>
+```
