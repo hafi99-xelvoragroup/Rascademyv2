@@ -5,7 +5,7 @@
 :root{--ink:#1b1340;--card:#fffafd;--soft:#ffeaf5;--pk:#ff4f9a;--yl:#ffc83d;--cy:#1fb5e6;--txt:#1b1340;--mut:#66598c;--sh:#1b1340;color-scheme:light}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:500;color:var(--txt);background:linear-gradient(170deg,#ffe3f1,#d4ecff) fixed;min-height:100dvh;overflow-x:hidden}
-#app{max-width:480px;margin:0 auto;padding:0 14px 104px;min-height:100dvh}
+#app{max-width:480px;margin:0 auto;padding:0 14px 104px;min-height:100dvh;position:relative;z-index:2}
 .ttl,.btn,.kj{font-family:'Dela Gothic One',sans-serif;font-weight:400}
 .top{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;gap:8px}
 .row{display:flex;align-items:center;gap:10px}.bt{justify-content:space-between}
@@ -27,11 +27,11 @@ body{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:500;color:
 .tabs button{font:inherit;font-weight:800;font-size:.72rem;padding:7px 2px;border:2px solid var(--ink);border-radius:8px;background:var(--card)}.tabs .on{background:var(--pk);color:#fff}
 .bar{height:14px;border:2.5px solid var(--ink);border-radius:99px;background:var(--card);overflow:hidden}.bar i{display:block;height:100%;background:repeating-linear-gradient(45deg,var(--pk) 0 8px,#ff7db8 8px 16px)}
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:3px solid var(--ink);padding:8px 6px calc(8px + env(safe-area-inset-bottom,0px));z-index:30}
-.nav button{font:inherit;background:none;border:0;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600;color:#3f3566;font-size:.62rem;white-space:nowrap}
+.nav button{font:inherit;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600;color:#3f3566;font-size:.62rem;white-space:nowrap;cursor:pointer}
 .nav .k{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic','Segoe UI',sans-serif;font-weight:400;font-size:1.3rem;width:40px;height:30px;display:grid;place-items:center;border-radius:8px}
 .nav .on{color:#1b1340;font-weight:700}.nav .on .k{background:var(--pk);color:#fff;border:2px solid var(--ink)}
 .ov{position:fixed;inset:0;z-index:50;background:rgba(10,6,36,.7);display:flex;align-items:center;justify-content:center;padding:16px}
-.ov .pn{width:100%;max-width:400px;margin:0}
+.ov .pn{width:100%;max-width:400px;margin:0;max-height:88dvh;overflow-y:auto}
 #mapwrap{position:fixed;inset:0;z-index:5;background:#1a2a1e;overflow:hidden}
 #mapwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .plate{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:10px;background:#fff8e8;border:3px solid #2a2a4a;border-radius:10px;padding:4px 12px;font-family:'Dela Gothic One',sans-serif;font-size:.78rem;color:#2a2a4a;box-shadow:3px 3px 0 #2a2a4a}
@@ -174,7 +174,6 @@ body{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:500;color:
   padding:7px 10px;
   cursor:pointer;
   box-shadow:0 2px 0 #94a3b8;
-  transition:transform .08s, background .15s;
 }
 .cc-opt:active:not(:disabled){transform:translateY(2px);box-shadow:none}
 .cc-opt:disabled{cursor:default}
@@ -264,7 +263,6 @@ body{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:500;color:
 .dot-on{display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;margin-right:5px}
 .dot-off{display:inline-block;width:9px;height:9px;border-radius:50%;background:#94a3b8;margin-right:5px}
 #sakura-bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;transition:opacity .3s ease}
-#app{position:relative;z-index:2}
 .btn,.opt,.cc-opt,.cc-buzzer,.nav button{transition:transform .12s cubic-bezier(.2,.8,.2,1),box-shadow .12s ease,background-color .15s ease;will-change:transform}
 </style></head><body>
 <canvas id="sakura-bg"></canvas>
@@ -278,94 +276,29 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSna
 
 const $=s=>document.querySelector(s);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-let db = null, auth = null, fbUid = null, unsubPlayers = null, unsubInvites = null, unsubRoom = null, hbTimer = null;
+let db = null, auth = null, fbUid = null, cloudStatus = 'Menghubungkan...';
+let unsubPlayers = null, unsubInvites = null, unsubRoom = null, hbTimer = null;
 const ONLINE_USERS = {};
-const BC = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('rascademy_live_' + appId) : null;
-const LS_PLAYERS_KEY = 'rascademy_shared_players_' + appId;
-const LS_SIGNAL_KEY = 'rascademy_shared_signal_' + appId;
 const SS_USER_KEY = 'rascademy_tab_user_' + appId;
+const ONLINE_TTL_MS = 180000;
 
 function nameToKey(name){
   const clean = (name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
   return 'player_' + (clean || 'guest');
 }
 
-function readSharedDirectory(){
-  try{
-    const raw = window.localStorage ? localStorage.getItem(LS_PLAYERS_KEY) : null;
-    if(!raw) return;
-    const map = JSON.parse(raw);
-    if(map && typeof map === 'object'){
-      Object.keys(map).forEach(k=>{
-        if(map[k] && map[k].uid) ONLINE_USERS[map[k].uid] = map[k];
-      });
-    }
-  }catch(e){}
+function isPlayerOnline(p){
+  if(!p || !p.online) return false;
+  return (Date.now() - (Number(p.lastSeen) || 0)) < ONLINE_TTL_MS;
 }
-
-function writeSharedPlayer(prof){
-  if(!prof || !prof.uid) return;
-  ONLINE_USERS[prof.uid] = prof;
-  try{
-    if(window.localStorage){
-      const raw = localStorage.getItem(LS_PLAYERS_KEY);
-      const map = raw ? JSON.parse(raw) : {};
-      map[prof.uid] = prof;
-      localStorage.setItem(LS_PLAYERS_KEY, JSON.stringify(map));
-    }
-  }catch(e){}
-}
-
-function sendCrossTabSignal(payload){
-  const msg = { ...payload, _ts: Date.now(), _rnd: Math.random() };
-  if(BC) try{ BC.postMessage(msg); }catch(e){}
-  try{
-    if(window.localStorage) localStorage.setItem(LS_SIGNAL_KEY, JSON.stringify(msg));
-  }catch(e){}
-}
-
-function handleRealtimeSignal(msg){
-  if(!msg) return;
-  if(msg.type === 'PLAYER_SYNC' && msg.profile){
-    ONLINE_USERS[msg.profile.uid] = msg.profile;
-    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-  }else if(msg.type === 'PLAYER_OFFLINE' && msg.uid){
-    if(ONLINE_USERS[msg.uid]) ONLINE_USERS[msg.uid].online = false;
-    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-  }else if(msg.type === 'REQUEST_PRESENCE' && S.user && S.w){
-    broadcastPresence();
-  }else if(msg.type === 'DUEL_INVITE' && S.user && msg.inv?.toUid === S.user.uid){
-    if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
-      showIncomingDuelModal(msg.inv);
-    }
-  }else if(msg.type === 'DUEL_RESP' && S.user && msg.fromUid === S.user.uid){
-    if(msg.status === 'accepted' && msg.roomId && (!S.du || S.du.roomId !== msg.roomId)){
-      $('#modal').innerHTML = '';
-      joinLiveRoom(msg.roomId, msg.toName);
-    }else if(msg.status === 'declined'){
-      if($('#modal').innerHTML.includes('Menunggu')){
-        $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${msg.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
-      }
-    }
-  }else if(msg.type === 'ROOM_UPDATE' && S.du && S.du.roomId === msg.roomId && msg.room){
-    applyRoomState(msg.room);
-  }
-}
-
-if(BC) BC.onmessage = (ev) => handleRealtimeSignal(ev.data);
-window.addEventListener('storage', (ev) => {
-  if(ev.key === LS_PLAYERS_KEY){
-    readSharedDirectory();
-    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-  }else if(ev.key === LS_SIGNAL_KEY && ev.newValue){
-    try{ handleRealtimeSignal(JSON.parse(ev.newValue)); }catch(e){}
-  }
-});
 
 async function initCloud(){
   if(db && auth?.currentUser) return true;
   try{
-    if(typeof __firebase_config === 'undefined') return false;
+    if(typeof __firebase_config === 'undefined'){
+      cloudStatus = 'Konfigurasi cloud tidak ditemukan';
+      return false;
+    }
     const cfg = JSON.parse(__firebase_config);
     const app = initializeApp(cfg);
     db = getFirestore(app);
@@ -376,8 +309,10 @@ async function initCloud(){
       await signInAnonymously(auth);
     }
     fbUid = auth.currentUser?.uid || null;
+    cloudStatus = fbUid ? 'Cloud Terhubung' : 'Autentikasi gagal';
     return !!fbUid;
   }catch(e){
+    cloudStatus = 'Gagal koneksi cloud: ' + (e?.code || e?.message || 'error');
     return false;
   }
 }
@@ -386,7 +321,6 @@ function startRealtimeListeners(){
   if(hbTimer) clearInterval(hbTimer);
   hbTimer = setInterval(()=>{
     if(S.user && S.w){
-      broadcastPresence();
       syncUserCloud();
     }
   }, 5000);
@@ -400,15 +334,19 @@ function startRealtimeListeners(){
         ONLINE_USERS[data.uid] = data;
       }
     });
+    cloudStatus = 'Cloud Aktif (' + Object.keys(ONLINE_USERS).length + ' pemain)';
     if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-  }, ()=>{});
+  }, (err)=>{
+    cloudStatus = 'Error baca pemain: ' + (err?.code || 'permission');
+    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+  });
 
   if(unsubInvites) unsubInvites();
   unsubInvites = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'duel_invites'), (snap)=>{
     snap.forEach(d=>{
       const inv = { id: d.id, ...d.data() };
       if(!S.user) return;
-      if(inv.toUid === S.user.uid && inv.status === 'pending' && (Date.now() - (inv.createdAt || 0)) < 45000){
+      if(inv.toUid === S.user.uid && inv.status === 'pending' && (Date.now() - (inv.createdAt || 0)) < 60000){
         if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
           showIncomingDuelModal(inv);
         }
@@ -426,7 +364,9 @@ function startRealtimeListeners(){
         deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', inv.id)).catch(()=>{});
       }
     });
-  }, ()=>{});
+  }, (err)=>{
+    console.warn('Invite listener error:', err);
+  });
 }
 
 const LV=['Murid Baru','Percikan Semangat','Penantang','Pendekar','Master','Legenda'];
@@ -461,57 +401,159 @@ const Q=[
 ['Trigonometri','sin α = 3/5 (lancip), maka cos α = …',['3/4','4/5','5/4','4/3'],1,'Tripel (3, 4, 5): cos α = 4/5.'],
 ['Geometri','Luas segitiga siku-siku dengan sisi penyiku 6 cm dan 8 cm…',['24 cm²','30 cm²','48 cm²','14 cm²'],0,'½ × 6 × 8 = 24.']];
 
-const newWs=p=>({lv:p?1:0,done:p?{lim:{sc:100}}:{},prac:p?[['Aljabar',4,4,100]]:[],duel:[],act:p?[['Belajar: Memahami Limit Secara Intuitif','Kuis 100%','Hari ini']]:[],pair:{on:false,pn:'',streak:0,days:[0,0,0,0,0,0,0],logs:[]},seen:0,found:p?[1,0,0]:[0,0,0],exp:null,px:320,py:900});
-const S={user:null,w:null,tab:'belajar',les:null,step:'wb',wb:0,qa:{},qs:false,pr:null,du:null,viewProf:null,searchQ:'',refreshing:false};
-const K={u:0,d:0,l:0,r:0};
-const shuf=a=>a.slice().sort(()=>Math.random()-.5);
+const newWs=p=>({lv:p?1:0,done:p?{lim:{sc:100}}:{},prac:p?[['Aljabar',4,4,100]]:[],duel:[],act:p?[['Bergabung sebagai Guest Petualang','Siap bertanding','Hari ini']]:[],pair:{on:false,pn:'',streak:0,days:[0,0,0,0,0,0,0],logs:[]},seen:0,found:p?[1,0,0]:[0,0,0],exp:null,px:320,py:900});
+const S={user:null,w:null,tab:'belajar',les:null,step:'wb',wb:0,qa:{},qs:false,pr:null,du:null,searchQ:''};
+const shuf=a=>a.sort(()=>Math.random()-.5);
 const nowT=()=>new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
 
-/* ---------- KELOPAK SAKURA SMOOTH (60FPS CANVAS) ---------- */
-const SK=document.getElementById('sakura-bg');
-const SK_PETALS=Array.from({length:26},()=>({
-  x:Math.random(),y:Math.random(),
-  s:5+Math.random()*6,
-  vy:.0005+Math.random()*.0008,
-  vx:(Math.random()-.3)*.0004,
-  rot:Math.random()*6.28,
-  vrot:(Math.random()-.5)*.03,
-  sway:Math.random()*6.28,
-  col:['#ffb7d5','#ff8fab','#ffd6e7','#ffc2d9'][Math.random()*4|0]
+/* ---------- SINKRONISASI FIRESTORE REAL-TIME ---------- */
+async function syncUserCloud(){
+  if(!S.user || !S.w) return;
+  const st = stats();
+  const publicProfile = {
+    uid: S.user.uid,
+    fbUid: fbUid || '',
+    name: S.user.name,
+    g: S.user.g,
+    gr: S.user.gr,
+    lv: st.lv,
+    rank: LV[st.lv],
+    d: st.d,
+    pc: st.pc,
+    dw: st.dw,
+    dn: st.dn,
+    pct: st.pct,
+    online: true,
+    lastSeen: Date.now()
+  };
+  ONLINE_USERS[S.user.uid] = publicProfile;
+  try{
+    sessionStorage.setItem(SS_USER_KEY, JSON.stringify({ user: S.user, w: { ...S.w, exp: null } }));
+  }catch(_){}
+
+  const ok = await initCloud();
+  if(!ok || !db) return;
+
+  try{
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), publicProfile, { merge: true });
+    if(fbUid){
+      await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), {
+        user: S.user,
+        w: { ...S.w, exp: null },
+        updatedAt: Date.now()
+      }, { merge: true });
+    }
+    cloudStatus = 'Cloud Aktif (' + Object.keys(ONLINE_USERS).length + ' pemain)';
+  }catch(e){
+    cloudStatus = 'Gagal tulis Firestore: ' + (e?.code || e?.message || 'error');
+  }
+}
+
+async function refreshPlayersNow(){
+  cloudStatus = 'Menyegarkan pemain...';
+  if(S.user && !S.du) render();
+  const ok = await initCloud();
+  if(ok && db){
+    try{
+      await syncUserCloud();
+      const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players'));
+      snap.forEach(d=>{
+        const data = d.data();
+        if(data && data.uid){
+          ONLINE_USERS[data.uid] = data;
+        }
+      });
+      cloudStatus = 'Terbaru (' + Object.keys(ONLINE_USERS).length + ' pemain)';
+    }catch(e){
+      cloudStatus = 'Gagal refresh: ' + (e?.code || e?.message || 'error');
+    }
+  }
+  if(S.user && !S.du) render();
+}
+
+async function restoreSessionOnLoad(){
+  let restored = null;
+  try{
+    const raw = sessionStorage.getItem(SS_USER_KEY);
+    if(raw) restored = JSON.parse(raw);
+  }catch(_){}
+
+  const ok = await initCloud();
+  if(!restored && ok && db && fbUid){
+    try{
+      const snap = await getDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'));
+      if(snap.exists()) restored = snap.data();
+    }catch(_){}
+  }
+
+  if(restored && restored.user && restored.user.name){
+    S.user = restored.user;
+    if(!S.user.uid) S.user.uid = nameToKey(S.user.name);
+    S.w = Object.assign(newWs(false), restored.w || {});
+    P.x = S.w.px || 320;
+    P.y = S.w.py || 900;
+    camX = P.x; camY = P.y;
+    INTRO = S.w.seen ? null : 0;
+    INTI = 0;
+    await syncUserCloud();
+    startRealtimeListeners();
+    render();
+    return true;
+  }
+  return false;
+}
+
+/* ---------- SAKURA PETALS (HALAMAN UTAMA) ---------- */
+const SKC = document.getElementById('sakura-bg');
+const SKG = SKC ? SKC.getContext('2d') : null;
+const PETALS = Array.from({length: 26}, () => ({
+  x: Math.random() * 1200,
+  y: Math.random() * 900,
+  r: 4.5 + Math.random() * 4.5,
+  vy: 0.55 + Math.random() * 0.75,
+  vx: -0.35 + Math.random() * 0.7,
+  ang: Math.random() * Math.PI * 2,
+  va: (Math.random() - 0.5) * 0.035,
+  sway: Math.random() * Math.PI * 2,
+  col: ['#ffb7d5', '#ff8fab', '#ffd6e7', '#ffc2d1'][Math.floor(Math.random() * 4)]
 }));
-let skLast=0;
+function resizeSakura(){
+  if(!SKC) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  SKC.width = Math.floor(window.innerWidth * dpr);
+  SKC.height = Math.floor(window.innerHeight * dpr);
+  if(SKG) SKG.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeSakura);
+resizeSakura();
 function sakuraLoop(tm){
-  const isMap = S.user && S.tab==='belajar' && !S.les;
-  if(SK){
-    SK.style.opacity = isMap ? '0' : '1';
-    if(!isMap){
-      const w=innerWidth,h=innerHeight;
-      if(SK.width!==w||SK.height!==h){SK.width=w;SK.height=h}
-      const g=SK.getContext('2d');
-      g.clearRect(0,0,w,h);
-      const dt=Math.min(40,tm-(skLast||tm));
-      for(let i=0;i<SK_PETALS.length;i++){
-        const p=SK_PETALS[i];
-        p.y+=p.vy*dt;
-        p.x+=p.vx*dt+Math.sin(tm*.0012+p.sway)*.00025*dt;
-        p.rot+=p.vrot*(dt/16);
-        if(p.y>1.04){p.y=-0.04;p.x=Math.random()}
-        if(p.x>1.04)p.x=-0.04;
-        if(p.x<-0.04)p.x=1.04;
-        g.save();
-        g.translate(p.x*w,p.y*h);
-        g.rotate(p.rot);
-        g.fillStyle=p.col;
-        g.beginPath();
-        g.moveTo(0,-p.s);
-        g.bezierCurveTo(p.s*.9,-p.s*.6,p.s*.9,p.s*.6,0,p.s);
-        g.bezierCurveTo(-p.s*.9,p.s*.6,-p.s*.9,-p.s*.6,0,-p.s);
-        g.fill();
-        g.restore();
+  const inMap = S.user && S.tab === 'belajar' && !S.les;
+  if(SKC){
+    SKC.style.opacity = inMap ? '0' : '1';
+    if(!inMap && SKG){
+      const W = window.innerWidth, H = window.innerHeight;
+      SKG.clearRect(0, 0, W, H);
+      for(let i = 0; i < PETALS.length; i++){
+        const p = PETALS[i];
+        p.y += p.vy;
+        p.x += p.vx + Math.sin(tm * 0.0012 + p.sway) * 0.45;
+        p.ang += p.va;
+        if(p.y > H + 16){ p.y = -14; p.x = Math.random() * W; }
+        if(p.x < -16) p.x = W + 12;
+        if(p.x > W + 16) p.x = -12;
+        SKG.save();
+        SKG.translate(p.x, p.y);
+        SKG.rotate(p.ang);
+        SKG.fillStyle = p.col;
+        SKG.beginPath();
+        SKG.moveTo(0, -p.r);
+        SKG.bezierCurveTo(p.r * 0.9, -p.r * 0.4, p.r * 0.8, p.r * 0.8, 0, p.r);
+        SKG.bezierCurveTo(-p.r * 0.8, p.r * 0.8, -p.r * 0.9, -p.r * 0.4, 0, -p.r);
+        SKG.fill();
+        SKG.restore();
       }
     }
   }
-  skLast=tm;
   requestAnimationFrame(sakuraLoop);
 }
 requestAnimationFrame(sakuraLoop);
@@ -570,113 +612,13 @@ for(let i=0;i<30;i++)FIRE.push({x:rnd()*WW,y:rnd()*WH,p:rnd()*6});
 for(let i=0;i<120;i++)SNOW.push({x:Math.random(),y:Math.random(),v:.05+Math.random()*.08,r:Math.random()*6});
 const DLG_INTRO=['Hai, kamu mau belajar ya? Lewat berpetualang di hutan ini!','Gerbang-gerbang di hutan ini tersembunyi. Jalan bercabang, ada yang buntu, dan kabut bisa datang tiba-tiba.','Kabarnya gerbang pertama ada di ujung jalan kecil yang bercabang ke barat, tak jauh dari awal. Gerakkan joystick, tekan A untuk berinteraksi.'];
 const dc=()=>{const i=LS.findIndex(l=>!(S.w.done[l.id]));return i<0?3:i};
-const stats=(wObj)=>{const w=wObj||S.w;if(!w)return{d:0,pc:0,dw:0,dn:0,lv:0,pct:0,qs:0,acc:0};const d=LS.filter(l=>w.done&&w.done[l.id]).length,pc=(w.prac||[]).length,dw=(w.duel||[]).filter(x=>x.o==='Menang').length;return{d,pc,dw,dn:(w.duel||[]).length,lv:w.lv||0,pct:Math.min(100,d*25+Math.min(2,pc)*10+Math.min(1,(w.duel||[]).length)*15),qs:(w.prac||[]).reduce((a,x)=>a+x[1],0),acc:pc?Math.round((w.prac||[]).reduce((a,x)=>a+x[3],0)/pc):0}};
+const stats=()=>{const d=LS.filter(l=>S.w.done[l.id]).length,pc=S.w.prac.length,dw=S.w.duel.filter(x=>x.o==='Menang').length;return{d,pc,dw,dn:S.w.duel.length,lv:S.w.lv,pct:Math.min(100,d*25+Math.min(2,pc)*10+Math.min(1,S.w.duel.length)*15),qs:S.w.prac.reduce((a,x)=>a+x[1],0),acc:pc?Math.round(S.w.prac.reduce((a,x)=>a+x[3],0)/pc):0}};
 function act(t,d){S.w.act.unshift([t,d,nowT()]);S.w.act.length=Math.min(S.w.act.length,20);syncUserCloud()}
 function plog(t){if(S.w.pair.on){S.w.pair.logs.unshift(t);S.w.pair.logs.length=Math.min(S.w.pair.logs.length,6)}}
 function ign(){S.w.lv=Math.min(5,S.w.lv+1);const p=S.w.pair,i=p.days.indexOf(0);if(i>-1)p.days[i]=1;p.streak++;syncUserCloud()}
 function cele(t,s){$('#modal').innerHTML=`<div class='ov'><section class='pn scroll' style='text-align:center'><div class='tag'>すごい!!</div><h2 class='ttl' style='font-size:1.2rem;margin:6px 0'>${t}</h2><p>${s}</p><div class='tag' style='margin-top:10px'>Aura Lv.${S.w.lv} • ${LV[S.w.lv]}</div><br><button class='btn w' onclick='cm()'>Lanjut ▶</button></section></div>`}
 function cm(){$('#modal').innerHTML='';render()}
-function saveMap(){if(S.w){S.w.px=Math.round(P.x);S.w.py=Math.round(P.y);syncUserCloud()}}
-
-function buildPublicProfile(){
-  const st = stats(S.w);
-  return {
-    uid: S.user.uid,
-    authUid: fbUid || '',
-    name: S.user.name,
-    g: S.user.g,
-    gr: S.user.gr,
-    lv: S.w.lv,
-    d: st.d,
-    pc: st.pc,
-    dw: st.dw,
-    dn: st.dn,
-    pct: st.pct,
-    act: S.w.act.slice(0, 5),
-    savedState: { ...S.w, exp: null },
-    lastSeen: Date.now(),
-    online: true
-  };
-}
-
-function saveSessionState(userObj){
-  try{
-    const val = JSON.stringify(userObj);
-    if(window.sessionStorage) sessionStorage.setItem(SS_USER_KEY, val);
-    document.cookie = `rascademy_session=${encodeURIComponent(val)}; path=/; max-age=2592000; SameSite=Lax`;
-    window.name = 'RASCADEMY_USER:' + val;
-  }catch(e){}
-}
-
-function loadSessionState(){
-  try{
-    if(window.sessionStorage){
-      const ss = sessionStorage.getItem(SS_USER_KEY);
-      if(ss) return JSON.parse(ss);
-    }
-    if(window.name && window.name.startsWith('RASCADEMY_USER:')){
-      return JSON.parse(window.name.slice('RASCADEMY_USER:'.length));
-    }
-    const m = document.cookie.match(/(?:^|;\s*)rascademy_session=([^;]+)/);
-    if(m) return JSON.parse(decodeURIComponent(m[1]));
-  }catch(e){}
-  return null;
-}
-
-function clearSessionState(){
-  try{
-    if(window.sessionStorage) sessionStorage.removeItem(SS_USER_KEY);
-    document.cookie = 'rascademy_session=; path=/; max-age=0';
-    if(window.name && window.name.startsWith('RASCADEMY_USER:')) window.name = '';
-  }catch(e){}
-}
-
-function broadcastPresence(){
-  if(!S.user || !S.w) return;
-  const prof = buildPublicProfile();
-  writeSharedPlayer(prof);
-  sendCrossTabSignal({ type: 'PLAYER_SYNC', profile: prof });
-}
-
-async function syncUserCloud(){
-  if(!S.user || !S.w) return;
-  const publicProfile = buildPublicProfile();
-  writeSharedPlayer(publicProfile);
-  saveSessionState(S.user);
-  sendCrossTabSignal({ type: 'PLAYER_SYNC', profile: publicProfile });
-  if(!db || !auth?.currentUser) return;
-  try{
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), publicProfile, { merge: true });
-    if(fbUid){
-      const privateSave = { ...S.w, exp: null };
-      await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), { activeUser: S.user, state: privateSave }, { merge: true });
-    }
-  }catch(e){}
-}
-
-async function refreshPlayersNow(){
-  S.refreshing = true;
-  render();
-  readSharedDirectory();
-  broadcastPresence();
-  sendCrossTabSignal({ type: 'REQUEST_PRESENCE' });
-  if(db && auth?.currentUser){
-    try{
-      const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players'));
-      snap.forEach(d=>{
-        const data = d.data();
-        if(data && data.uid){
-          ONLINE_USERS[data.uid] = data;
-          writeSharedPlayer(data);
-        }
-      });
-    }catch(e){}
-  }
-  setTimeout(()=>{
-    S.refreshing = false;
-    if(S.user && !S.du) render();
-  }, 300);
-}
+function saveMap(){if(S.w){S.w.px=Math.round(P.x);S.w.py=Math.round(P.y)}}
 
 /* ---------- PETA RPG (CANVAS PIKSEL) ---------- */
 const CV=document.createElement('canvas');CV.style.cssText='position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;display:block;touch-action:none';
@@ -732,104 +674,88 @@ function mapLoop(tm){if(!mapActive()){MR=0;return}const dt=Math.min(.05,(tm-LT)/
 function startMap(){cancelAnimationFrame(MR);LT=performance.now();MR=requestAnimationFrame(mapLoop)}
 function mapTap(){if(INTRO!==null){advIntro();return}const d=dc();if(NEAR>=0){if(NEAR<3){if(NEAR>d){TOAST='Gerbang ini tersegel kabut. Selesaikan gerbang sebelumnya untuk mendapat petunjuk jalan ke sini.';TT=5;return}saveMap();openL(LS[NEAR].id)}else{if(d<3){TOAST='Peti cahaya masih terkunci. Kumpulkan ketiga secarik peta dulu.';TT=5}else finHarta()}return}if(STN>=0){TOAST=STONES[STN].msg;TT=8}}
 let TYPING=false;
-function advIntro(){if(TYPING){clearInterval(TYPE);TYPING=false;const w=$('#win');if(w)w.innerHTML='<b>Hutan</b><br>'+DLG_INTRO[INTI]+' ▶';return}INTI++;if(INTI>=DLG_INTRO.length){INTRO=null;S.w.seen=1;const w=$('#win');if(w){w.dataset.k='';}saveMap()}else{typeIntro()}}
+function advIntro(){if(TYPING){clearInterval(TYPE);TYPING=false;const w=$('#win');if(w)w.innerHTML='<b>Hutan</b><br>'+DLG_INTRO[INTI]+' ▶';return}INTI++;if(INTI>=DLG_INTRO.length){INTRO=null;S.w.seen=1;const w=$('#win');if(w){w.dataset.k='';}saveMap();syncUserCloud()}else{typeIntro()}}
 let TYPE=0;
 function typeIntro(){clearInterval(TYPE);const w=$('#win');if(!w)return;const t=DLG_INTRO[INTI];let i=0;w.dataset.k='intro'+INTI;TYPING=true;TYPE=setInterval(()=>{i++;w.innerHTML='<b>Hutan</b><br>'+t.slice(0,i)+(i<t.length?'':' ▶');if(i>=t.length){clearInterval(TYPE);TYPING=false}},22)}
 
-/* ---------- LAYAR LOGIN REAL (GUEST + NAMA) ---------- */
+/* ---------- LAYAR AUTH (GUEST + NAMA REAL) ---------- */
 function setTop(){if(!S.user){$('#top').innerHTML='';return}$('#top').innerHTML=`<div class='row'><div class='kj'>極</div><div><div class='ttl' style='font-size:1rem'>Rascademy</div><div class='mut'>${S.user.name}</div></div></div><div class='tag' style='margin:0'>Aura Lv.${S.w.lv}</div>`}
 function renderAuth(){
   $('#top').innerHTML=`<div class='row'><div class='kj'>極</div><div class='ttl' style='font-size:1.1rem'>Rascademy</div></div>`;
   $('#nav').innerHTML='';
   $('#main').innerHTML=`
   <section class='pn hero' style='padding:20px 16px'>
-    <div class='tag'>MULTIPLAYER REAL-TIME</div>
-    <h1 class='ttl' style='font-size:1.45rem'>Pahami Konsepnya,<br>Tantang Pemain Lain!</h1>
-    <p style='margin-top:8px;font-weight:700'>Masuk sebagai Guest dengan namamu sendiri, lihat profil pemain lain secara real-time, dan adu cepat di Studio Cerdas Cermat!</p>
+    <div class='tag'>ONLINE MULTIPLAYER ARENA</div>
+    <h1 class='ttl' style='font-size:1.55rem'>Pahami Konsepnya,<br>Tantang Pemain Real!</h1>
+    <p style='margin-top:8px;font-weight:700'>Masuk sebagai Guest dengan namamu sendiri, lihat pemain lain yang sedang online secara real-time, dan adu cepat di Panggung Cerdas Cermat.</p>
   </section>
   <section class='pn'>
-    <h2 class='ttl' style='font-size:1rem;margin-bottom:8px'>Masuk sebagai Guest + Nama</h2>
-    <label style='font-size:.78rem;font-weight:800'>Nama Tampilanmu</label>
-    <input id='gName' class='inp' type='text' maxlength='24' placeholder='Contoh: Raka, Alya, Hafi...' onkeydown='if(event.key==="Enter")loginGuest()' />
+    <h2 class='ttl' style='font-size:1.05rem;margin-bottom:8px'>Masuk sebagai Guest</h2>
+    <label style='font-weight:800;font-size:.82rem'>Nama Panggilan / Petualang</label>
+    <input id='g-name' class='inp' type='text' maxlength='20' placeholder='Contoh: Raka, Alya, Bima...' onkeydown='if(event.key==="Enter")loginGuest()'>
     <div class='g2' style='margin-top:10px'>
       <div>
-        <label style='font-size:.75rem;font-weight:800'>Gender</label>
-        <select id='gGen' class='inp' style='padding:8px 10px'>
+        <label style='font-weight:800;font-size:.78rem'>Gender</label>
+        <select id='g-gen' class='inp'>
           <option value='Laki-laki'>Laki-laki</option>
           <option value='Perempuan'>Perempuan</option>
         </select>
       </div>
       <div>
-        <label style='font-size:.75rem;font-weight:800'>Jenjang</label>
-        <select id='gGrade' class='inp' style='padding:8px 10px'>
-          <option value='Kelas X SMA'>Kelas X SMA</option>
+        <label style='font-weight:800;font-size:.78rem'>Kelas</label>
+        <select id='g-gr' class='inp'>
+          <option value='Kelas XII SMA'>Kelas XII SMA</option>
           <option value='Kelas XI SMA'>Kelas XI SMA</option>
-          <option value='Kelas XII SMA' selected>Kelas XII SMA</option>
-          <option value='Umum / Mahasiswa'>Umum / Mahasiswa</option>
+          <option value='Kelas X SMA'>Kelas X SMA</option>
+          <option value='Umum / Mahasiswa'>Umum</option>
         </select>
       </div>
     </div>
-    <div id='authMsg' class='mut' style='color:#c2185b;margin-top:8px;font-weight:800'></div>
-    <button id='btnLoginGuest' class='btn w' style='margin-top:12px' onclick='loginGuest()'>Masuk & Mulai Petualangan ▶</button>
+    <button id='btn-login-guest' class='btn w' style='margin-top:14px' onclick='loginGuest()'>Masuk & Gabung Online ▶</button>
+    <p class='mut' style='text-align:center;margin-top:8px'>Nama berbeda otomatis membuat profil pemain baru yang langsung terdeteksi oleh pemain lain.</p>
   </section>`;
 }
 
-async function loginGuest(autoUser=null){
-  let rawName = '', gen = 'Laki-laki', gr = 'Kelas XII SMA';
-  if(autoUser){
-    rawName = autoUser.name;
-    gen = autoUser.g || 'Laki-laki';
-    gr = autoUser.gr || 'Kelas XII SMA';
-  }else{
-    const inp = $('#gName');
-    rawName = (inp?.value || '').trim();
-    if(rawName.length < 2){
-      if($('#authMsg')) $('#authMsg').textContent = 'Masukkan namamu minimal 2 huruf ya!';
-      return;
-    }
-    const btn = $('#btnLoginGuest');
-    if(btn){ btn.disabled = true; btn.textContent = 'Menghubungkan...'; }
-    gen = $('#gGen')?.value || 'Laki-laki';
-    gr = $('#gGrade')?.value || 'Kelas XII SMA';
+async function loginGuest(){
+  const inp = $('#g-name');
+  const rawName = (inp?.value || '').trim();
+  if(!rawName){
+    if(inp) inp.focus();
+    $('#modal').innerHTML=`<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>NAMA KOSONG</div><p style='margin:8px 0;font-weight:700'>Masukkan nama panggilanmu terlebih dahulu agar pemain lain bisa mengenalimu!</p><button class='btn w' onclick='cm()'>Oke</button></section></div>`;
+    return;
   }
+  const btn = $('#btn-login-guest');
+  if(btn){ btn.disabled = true; btn.textContent = 'Menghubungkan...'; }
 
-  readSharedDirectory();
-  await initCloud();
+  const gen = $('#g-gen')?.value || 'Laki-laki';
+  const gr = $('#g-gr')?.value || 'Kelas XII SMA';
   const uid = nameToKey(rawName);
-  S.user = { uid, name: rawName, g: gen, gr, isGuest: true };
-  saveSessionState(S.user);
 
-  let loadedState = null;
+  await initCloud();
+
+  let loadedW = null;
   if(db && auth?.currentUser){
     try{
       const existingSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', uid));
-      if(existingSnap.exists() && existingSnap.data()?.savedState){
-        loadedState = existingSnap.data().savedState;
+      if(existingSnap.exists()){
+        const d = existingSnap.data();
+        loadedW = newWs(false);
+        loadedW.lv = d.lv || 0;
+        if(d.d >= 1) loadedW.done.lim = {sc: 100};
+        if(d.d >= 2) loadedW.done.alj = {sc: 100};
+        if(d.d >= 3) loadedW.done.bil = {sc: 100};
       }
-    }catch(e){}
-  }
-  if(!loadedState && ONLINE_USERS[uid]?.savedState){
-    loadedState = ONLINE_USERS[uid].savedState;
+    }catch(_){}
   }
 
-  S.w = loadedState ? { ...newWs(0), ...loadedState, exp: null } : newWs(0);
-  P.x = S.w.px || 320; P.y = S.w.py || 900; camX = P.x; camY = P.y;
+  S.user = { uid, name: rawName, g: gen, gr, isGuest: true };
+  S.w = loadedW || newWs(false);
+  P.x = S.w.px; P.y = S.w.py; camX = P.x; camY = P.y;
   S.tab = 'belajar'; S.les = null; S.pr = null; S.du = null;
   INTRO = S.w.seen ? null : 0; INTI = 0;
 
   await syncUserCloud();
   startRealtimeListeners();
-  await refreshPlayersNow();
-  render();
-}
-
-async function restoreSessionOnLoad(){
-  readSharedDirectory();
-  const saved = loadSessionState();
-  if(saved && saved.name){
-    await loginGuest(saved);
-    return;
-  }
   render();
 }
 
@@ -878,493 +804,470 @@ function prSes(){const p=S.pr;$('#main').innerHTML=`<div class='row bt' style='m
 function subP(){const p=S.pr,ok=p.qs.filter((q,i)=>p.a[i]===q[3]).length,sc=Math.round(ok/p.qs.length*100);p.done=true;p.ok=ok;p.sc=sc;S.w.prac.unshift([p.t,p.qs.length,ok,sc]);act('Latsol '+p.t,'Skor '+sc+'% ('+ok+'/'+p.qs.length+')');plog(S.user.name+' menyelesaikan Latsol '+p.t+' ('+sc+'%)');ign();render();cele('Misi Latsol Selesai!','Topik '+p.t+' tuntas dengan akurasi '+sc+'%.')}
 function prRes(){const p=S.pr;$('#main').innerHTML=`<section class='pn hero' style='text-align:center'><div class='tag'>HASIL LATIHAN</div><div class='ttl' style='font-size:2.4rem'>${p.sc}%</div><b>${p.ok} dari ${p.qs.length} soal benar</b></section>${p.qs.map((q,i)=>`<section class='pn'><span class='mut'>Pembahasan ${i+1}</span><p style='font-weight:800'>${q[1]}</p>${q[2].map((o,j)=>`<div class='opt ${j===q[3]?'ok':(p.a[i]===j?'no':'')}' style='cursor:default'><b>${'ABCD'[j]}</b><span>${o}</span></div>`).join('')}<div class='it'>💡 ${q[4]}</div></section>`).join('')}<button class='btn w' onclick='S.pr=null;render()'>Kembali ke Daftar Jurus ▶</button>`}
 
-/* ---------- PROFIL PUBLIK PEMAIN REAL ---------- */
-function openPlayerProfile(uid){
-  readSharedDirectory();
+/* ---------- STUDIO CERDAS CERMAT (REAL MULTIPLAYER + BOT) ---------- */
+function getOtherPlayers(){
+  const all = Object.values(ONLINE_USERS).filter(p => p && p.uid && p.uid !== S.user.uid);
+  const q = (S.searchQ || '').trim().toLowerCase();
+  const filtered = q ? all.filter(p => (p.name || '').toLowerCase().includes(q) || (p.gr || '').toLowerCase().includes(q)) : all;
+  return filtered.sort((a,b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+}
+
+function setSearchPlayers(val){
+  S.searchQ = val;
+  render();
+  const el = $('#search-player-inp');
+  if(el){
+    el.focus();
+    el.setSelectionRange(val.length, val.length);
+  }
+}
+
+function viewPlayerProfile(uid){
   const p = ONLINE_USERS[uid];
   if(!p) return;
-  const isOn = p.online && (Date.now() - (p.lastSeen || 0)) < 90000;
+  const isOn = isPlayerOnline(p);
   $('#modal').innerHTML = `
   <div class='ov' onclick='cm()'>
     <section class='pn' onclick='event.stopPropagation()'>
-      <div class='row bt' style='margin-bottom:8px'>
-        <span class='tag' style='margin:0'>PROFIL PEMAIN</span>
-        <span style='font-size:.75rem;font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${isOn?'Online':'Offline'}</span>
+      <div class='row bt'>
+        <span class='tag' style='margin:0'>PROFIL PEMAIN REAL</span>
+        <span style='font-size:.75rem;font-weight:800;color:${isOn?'#059669':'#64748b'}'><span class='${isOn?'dot-on':'dot-off'}'></span>${isOn?'Online':'Baru saja'}</span>
       </div>
-      <div class='row' style='margin:10px 0'>
-        <div class='kj' style='width:54px;height:54px;font-size:1.3rem'>${(p.name||'G')[0].toUpperCase()}</div>
+      <div class='row' style='margin:12px 0'>
+        <div class='kj' style='width:54px;height:54px;font-size:1.3rem'>${(p.name||'?')[0].toUpperCase()}</div>
         <div>
-          <h2 class='ttl' style='font-size:1.05rem'>${p.name}</h2>
-          <div style='font-weight:700;font-size:.82rem'>${p.gr||'Pelajar'} • ${p.g||'-'}</div>
-          <div class='tag' style='margin-top:4px'>Aura Lv.${p.lv||0} • ${LV[p.lv||0]}</div>
+          <h2 class='ttl' style='font-size:1.1rem'>${p.name}</h2>
+          <div class='mut'>${p.gr || 'Pelajar'} • ${p.g || 'Guest'}</div>
+          <div class='tag' style='margin-top:4px'>Aura Lv.${p.lv || 0} • ${p.rank || LV[p.lv || 0]}</div>
         </div>
       </div>
-      <div class='g4' style='margin:10px 0'>
-        <div class='st'><strong>${p.d||0}/3</strong><span class='mut'>Peta</span></div>
-        <div class='st'><strong>${p.pc||0}</strong><span class='mut'>Latsol</span></div>
-        <div class='st'><strong>${p.dw||0}</strong><span class='mut'>Menang</span></div>
-        <div class='st'><strong>${p.pct||0}%</strong><span class='mut'>Progres</span></div>
+      <div class='g4' style='margin-bottom:12px'>
+        <div class='st'><strong>${p.d || 0}/3</strong><span class='mut'>Peta</span></div>
+        <div class='st'><strong>${p.pc || 0}</strong><span class='mut'>Latsol</span></div>
+        <div class='st'><strong>${p.dw || 0}</strong><span class='mut'>Menang</span></div>
+        <div class='st'><strong>${p.pct || 0}%</strong><span class='mut'>Progres</span></div>
       </div>
-      <div style='font-weight:800;font-size:.82rem;margin-top:8px'>Aktivitas Terakhir:</div>
-      ${(p.act&&p.act.length)?p.act.slice(0,3).map(a=>`<div class='it' style='padding:7px 10px'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join(''):"<div class='it mut'>Baru bergabung sebagai petualang!</div>"}
-      <div class='row' style='margin-top:12px'>
-        <button class='btn gh w' onclick='cm()'>Tutup</button>
-        <button class='btn w' onclick='cm();challengePlayer("${p.uid}")'>Tantang Duel 🔔</button>
-      </div>
-    </section>
-  </div>`;
-}
-
-/* ---------- STUDIO CERDAS CERMAT (REAL MULTIPLAYER + BOT) ---------- */
-function showIncomingDuelModal(inv){
-  $('#modal').innerHTML = `
-  <div class='ov'>
-    <section class='pn scroll' style='text-align:center'>
-      <div class='tag'>TANTANGAN DUEL MASUK!</div>
-      <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>${inv.fromName}</h2>
-      <p style='font-weight:700'>Mengajakmu bertanding live di Studio Cerdas Cermat!</p>
-      <div class='row' style='margin-top:14px'>
-        <button class='btn gh w' onclick='respondInvite("${inv.id}",false)'>Tolak</button>
-        <button class='btn yl w' onclick='respondInvite("${inv.id}",true)'>Terima & Masuk Studio ▶</button>
-      </div>
+      <button class='btn w' onclick='cm();challengePlayer("${p.uid}")'>Tantang Cerdas Cermat 1v1 🔔</button>
+      <button class='btn gh w' style='margin-top:8px' onclick='cm()'>Tutup</button>
     </section>
   </div>`;
 }
 
 async function challengePlayer(targetUid){
-  readSharedDirectory();
   const target = ONLINE_USERS[targetUid];
   if(!target) return;
-  const invId = 'inv_' + S.user.uid + '_' + targetUid + '_' + Date.now();
-  const invData = {
-    id: invId,
+  const ok = await initCloud();
+  if(!ok || !db){
+    $('#modal').innerHTML=`<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>OFFLINE</div><p style='margin:8px 0'>Koneksi cloud belum siap (${cloudStatus}). Coba klik 🔄 Refresh atau tanding melawan Bot Studio.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
+    return;
+  }
+  const invId = S.user.uid + '_' + targetUid + '_' + Date.now();
+  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), {
     fromUid: S.user.uid,
     fromName: S.user.name,
     toUid: targetUid,
     toName: target.name,
     status: 'pending',
     createdAt: Date.now()
-  };
+  });
   $('#modal').innerHTML = `
   <div class='ov'>
     <section class='pn' style='text-align:center'>
       <div class='tag'>MENGUNDANG KE STUDIO</div>
-      <h2 class='ttl' style='font-size:1.05rem;margin:8px 0'>Menunggu ${target.name}...</h2>
-      <p class='mut'>Pastikan ${target.name} juga membuka web ini dan menerima tantanganmu.</p>
-      <button class='btn gh w' style='margin-top:12px' onclick='cancelInvite("${invId}")'>Batalkan</button>
+      <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>Menunggu ${target.name}...</h2>
+      <p class='mut'>Tantangan Cerdas Cermat Real-Time telah dikirim ke layar ${target.name}.</p>
+      <button class='btn gh w' style='margin-top:14px' onclick='cancelInvite("${invId}")'>Batalkan Tantangan</button>
     </section>
   </div>`;
-  sendCrossTabSignal({ type: 'DUEL_INVITE', inv: invData });
-  if(db && auth?.currentUser){
-    try{
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), invData);
-    }catch(e){}
-  }
 }
 
 async function cancelInvite(invId){
-  $('#modal').innerHTML = '';
-  if(db && auth?.currentUser){
-    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>{});
-  }
+  if(db) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>{});
+  cm();
+}
+
+function showIncomingDuelModal(inv){
+  $('#modal').innerHTML = `
+  <div class='ov'>
+    <section class='pn scroll' style='text-align:center'>
+      <div class='tag'>TANTANGAN DUEL MASUK!</div>
+      <h2 class='ttl' style='font-size:1.15rem;margin:8px 0'>${inv.fromName}</h2>
+      <p style='font-weight:700'>Mengajakmu bertanding langsung di Panggung Cerdas Cermat 1v1!</p>
+      <div class='g2' style='margin-top:14px'>
+        <button class='btn gh' onclick='respondInvite("${inv.id}", false)'>Tolak</button>
+        <button class='btn' onclick='respondInvite("${inv.id}", true)'>Terima Duel 🔔</button>
+      </div>
+    </section>
+  </div>`;
 }
 
 async function respondInvite(invId, accept){
   $('#modal').innerHTML = '';
-  const parts = invId.split('_');
-  const fromUid = parts.length >= 4 ? parts.slice(1, parts.length - 2).join('_') : '';
-  const invRef = (db && auth?.currentUser) ? doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId) : null;
-  let inv = null;
-  if(invRef){
-    try{
-      const snap = await getDoc(invRef);
-      if(snap.exists()) inv = snap.data();
-    }catch(e){}
-  }
-  const hostUid = inv?.fromUid || fromUid;
-  const hostName = inv?.fromName || ONLINE_USERS[hostUid]?.name || 'Penantang';
+  if(!db) return;
+  const invRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId);
   if(!accept){
-    sendCrossTabSignal({ type: 'DUEL_RESP', invId, fromUid: hostUid, toName: S.user.name, status: 'declined' });
-    if(invRef) await updateDoc(invRef, { status: 'declined' }).catch(()=>{});
+    await updateDoc(invRef, { status: 'declined' }).catch(()=>{});
     return;
   }
-  const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  const qs = shuf(Q.slice()).slice(0,4).map(q=>({ cat:q[0], q:q[1], opts:q[2], ans:q[3] }));
-  const roomData = {
+  const snap = await getDoc(invRef);
+  if(!snap.exists()) return;
+  const inv = snap.data();
+  const roomId = 'room_' + Date.now() + '_' + Math.floor(Math.random()*999);
+  const qs = shuf(Q.slice()).slice(0, 4).map(q => ({ cat: q[0], text: q[1], opts: q[2], ans: q[3] }));
+
+  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), {
     roomId,
-    p1: { uid: hostUid, name: hostName, score: 0 },
-    p2: { uid: S.user.uid, name: S.user.name, score: 0 },
+    p1Uid: inv.fromUid,
+    p1Name: inv.fromName,
+    p2Uid: S.user.uid,
+    p2Name: S.user.name,
+    s1: 0,
+    s2: 0,
     qs,
-    i: 0,
-    ph: 'buzz',
-    holder: null,
-    el: null,
-    ch: null,
+    round: 0,
+    phase: 'buzz',
+    holderUid: null,
+    eliminatedUid: null,
+    lastChoice: null,
     msg: 'Juri membacakan soal! Tekan BEL merah sekarang!',
-    deadline: Date.now() + 12000,
+    roundDeadline: Date.now() + 15000,
     done: false
-  };
-  sendCrossTabSignal({ type: 'DUEL_RESP', invId, fromUid: hostUid, toName: S.user.name, status: 'accepted', roomId });
-  sendCrossTabSignal({ type: 'ROOM_UPDATE', roomId, room: roomData });
-  if(db && auth?.currentUser){
-    try{
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), roomData);
-      if(invRef) await updateDoc(invRef, { status: 'accepted', roomId });
-    }catch(e){}
-  }
-  joinLiveRoom(roomId, hostName, roomData);
+  });
+  await updateDoc(invRef, { status: 'accepted', roomId });
+  joinLiveRoom(roomId, inv.fromName);
 }
 
-function applyRoomState(r){
-  if(!S.du || S.du.roomId !== r.roomId) return;
-  const amP1 = r.p1.uid === S.user.uid;
-  const meObj = amP1 ? r.p1 : r.p2;
-  const opObj = amP1 ? r.p2 : r.p1;
-  S.du.room = r;
-  S.du.amP1 = amP1;
-  S.du.on = opObj.name;
-  S.du.us = meObj.score;
-  S.du.os = opObj.score;
-  S.du.i = r.i;
-  S.du.qs = r.qs.map(x=>[x.cat, x.q, x.opts, x.ans]);
-  S.du.el = r.el;
-  S.du.ch = r.ch;
-  S.du.msg = r.msg;
-  if(r.ph === 'buzz') S.du.ph = 'buzz';
-  else if(r.ph === 'ans') S.du.ph = (r.holder === S.user.uid) ? 'me' : 'opp';
-  else if(r.ph === 'rb') S.du.ph = (r.holder === S.user.uid) ? 'rbme' : 'rbop';
-  else if(r.ph === 'rev') S.du.ph = 'rev';
-  S.du.t = Math.max(0, Math.ceil(((r.deadline || Date.now()) - Date.now()) / 1000));
-  if(r.done && !S.du.done){
-    S.du.done = true;
-    S.du.o = S.du.us > S.du.os ? 'Menang' : S.du.us === S.du.os ? 'Seri' : 'Kalah';
-    clearInterval(S.du.iv);
-    S.w.duel.unshift({ o: S.du.o, on: S.du.on, us: S.du.us, os: S.du.os });
-    act('Duel Live vs ' + S.du.on, S.du.o + ' (' + S.du.us + '-' + S.du.os + ')');
-    ign();
-    cele(S.du.o==='Menang'?'Kemenangan Live!':'Pertandingan Selesai!','Skor akhir '+S.du.us+' - '+S.du.os+' melawan '+S.du.on+'.');
-  }
-  if(S.tab === 'duel') render();
-}
-
-function joinLiveRoom(roomId, oppName, initialRoom=null){
+function joinLiveRoom(roomId, oppName){
   if(S.du) exitDuel();
   S.tab = 'duel';
   S.du = {
     live: true,
     roomId,
     on: oppName,
-    qs: Q.slice(0,4),
-    i: 0, us: 0, os: 0, t: 12,
+    qs: [],
+    i: 0,
+    us: 0,
+    os: 0,
+    t: 15,
     ph: 'buzz',
     msg: 'Menghubungkan ke panggung studio...',
-    ch: null, el: null, done: false,
-    room: initialRoom
+    ch: null,
+    el: null,
+    done: false,
+    recorded: false
   };
-  S.du.iv = setInterval(()=>{
-    const m = S.du;
-    if(!m || m.done || !m.room) return;
-    const rem = Math.max(0, Math.ceil(((m.room.deadline || Date.now()) - Date.now()) / 1000));
-    m.t = rem;
-    const el = document.getElementById('dtm');
-    if(el) el.textContent = '⏱ 00:' + String(rem).padStart(2,'0');
-    if(rem === 0 && m.amP1 && m.room.ph !== 'rev'){
-      handleLiveTimeout();
-    }
-  }, 500);
-  if(initialRoom) applyRoomState(initialRoom);
-  if(db && auth?.currentUser){
-    unsubRoom = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), (snap)=>{
-      if(!snap.exists() || !S.du) return;
-      applyRoomState(snap.data());
-    }, ()=>{});
+  S.du.iv = setInterval(tickLiveRoom, 500);
+  unsubRoom = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), (snap)=>{
+    if(!snap.exists() || !S.du) return;
+    applyRoomState(snap.data());
+  });
+  render();
+}
+
+function applyRoomState(r){
+  const m = S.du;
+  if(!m) return;
+  const amP1 = r.p1Uid === S.user.uid;
+  m.on = amP1 ? r.p2Name : r.p1Name;
+  m.us = amP1 ? r.s1 : r.s2;
+  m.os = amP1 ? r.s2 : r.s1;
+  m.qs = (r.qs || []).map(q => [q.cat, q.text, q.opts, q.ans]);
+  m.i = r.round || 0;
+  m.msg = r.msg || '';
+  m.ch = r.lastChoice;
+  m.done = !!r.done;
+  m.deadline = r.roundDeadline || (Date.now() + 10000);
+  m.t = Math.max(0, Math.ceil((m.deadline - Date.now()) / 1000));
+
+  if(r.phase === 'buzz'){
+    m.ph = 'buzz';
+  }else if(r.phase === 'ans'){
+    m.ph = r.holderUid === S.user.uid ? 'me' : 'opp';
+  }else if(r.phase === 'rebound'){
+    m.ph = r.holderUid === S.user.uid ? 'rbme' : 'rbop';
+  }else if(r.phase === 'rev'){
+    m.ph = 'rev';
+  }
+
+  if(m.done && !m.recorded){
+    m.recorded = true;
+    m.o = m.us > m.os ? 'Menang' : m.us === m.os ? 'Seri' : 'Kalah';
+    clearInterval(m.iv);
+    S.w.duel.unshift({ o: m.o, on: m.on, us: m.us, os: m.os });
+    act('Duel Real vs ' + m.on, m.o + ' (' + m.us + '-' + m.os + ')');
+    ign();
+    render();
+    cele(m.o === 'Menang' ? 'Kemenangan Duel Real!' : 'Duel Studio Selesai!', 'Skor akhir ' + m.us + ' - ' + m.os + ' melawan ' + m.on + '.');
+    return;
   }
   render();
 }
 
-async function pushRoomUpdate(patch){
-  if(!S.du || !S.du.room) return;
-  const nextRoom = { ...S.du.room, ...patch };
-  applyRoomState(nextRoom);
-  sendCrossTabSignal({ type: 'ROOM_UPDATE', roomId: S.du.roomId, room: nextRoom });
-  if(db && auth?.currentUser){
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', S.du.roomId), patch).catch(()=>{});
-  }
-}
-
-async function handleLiveTimeout(){
-  const m = S.du; if(!m || !m.room) return;
-  const r = m.room;
-  if(r.ph === 'buzz'){
-    await pushRoomUpdate({ ph: 'rev', msg: 'Waktu habis! Tidak ada yang menekan bel. Kunci: ' + 'ABCD'[r.qs[r.i].ans] + '.', deadline: Date.now() + 2500 });
-    setTimeout(()=>advanceLiveRound(), 2500);
-  }else if(r.ph === 'ans' || r.ph === 'rb'){
-    await pushRoomUpdate({ ph: 'rev', msg: 'Waktu menjawab habis! Kunci: ' + 'ABCD'[r.qs[r.i].ans] + '.', deadline: Date.now() + 2500 });
-    setTimeout(()=>advanceLiveRound(), 2500);
-  }
-}
-
-async function advanceLiveRound(){
-  const m = S.du; if(!m || !m.room || !m.amP1) return;
-  const r = m.room;
-  if(r.i + 1 < r.qs.length){
-    await pushRoomUpdate({
-      i: r.i + 1,
-      ph: 'buzz',
-      holder: null,
-      el: null,
-      ch: null,
-      msg: 'Ronde berikutnya! Tekan BEL merah sekarang!',
-      deadline: Date.now() + 12000
-    });
-  }else{
-    await pushRoomUpdate({ done: true });
+async function tickLiveRoom(){
+  const m = S.du;
+  if(!m || !m.live || m.done) return;
+  const rem = Math.max(0, Math.ceil(((m.deadline || Date.now()) - Date.now()) / 1000));
+  m.t = rem;
+  const el = document.getElementById('dtm');
+  if(el) el.textContent = '00:' + String(rem).padStart(2, '0');
+  if(rem === 0 && db && m.roomId){
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
+    const snap = await getDoc(roomRef).catch(()=>null);
+    if(!snap || !snap.exists()) return;
+    const r = snap.data();
+    if(Date.now() < (r.roundDeadline || 0)) return;
+    const q = r.qs[r.round];
+    if(r.phase === 'buzz'){
+      await updateDoc(roomRef, {
+        phase: 'rev',
+        msg: 'Waktu habis! Tak ada yang menekan bel. Kunci: ' + 'ABCD'[q.ans] + '.',
+        roundDeadline: Date.now() + 2500
+      }).catch(()=>{});
+    }else if(r.phase === 'ans' || r.phase === 'rebound'){
+      await updateDoc(roomRef, {
+        phase: 'rev',
+        msg: 'Waktu menjawab habis! Kunci: ' + 'ABCD'[q.ans] + '.',
+        roundDeadline: Date.now() + 2500
+      }).catch(()=>{});
+    }else if(r.phase === 'rev'){
+      if(r.round + 1 < r.qs.length){
+        await updateDoc(roomRef, {
+          round: r.round + 1,
+          phase: 'buzz',
+          holderUid: null,
+          eliminatedUid: null,
+          lastChoice: null,
+          msg: 'Ronde berikutnya! Siap-siap tekan BEL merah!',
+          roundDeadline: Date.now() + 15000
+        }).catch(()=>{});
+      }else{
+        await updateDoc(roomRef, { done: true }).catch(()=>{});
+      }
+    }
   }
 }
 
 function tabDuel(){
  const m=S.du,u=S.user;
  if(!m){
-  readSharedDirectory();
-  const s=stats();
-  const qStr = (S.searchQ || '').trim().toLowerCase();
-  const allPlayers = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid && (!qStr || (p.name||'').toLowerCase().includes(qStr)));
-  const realOnline = allPlayers.filter(p=>p.online && (Date.now()-(p.lastSeen||0))<90000);
-  $('#main').innerHTML=`
-  <div class='cc-stage' style='padding-bottom:14px'>
-    <div class='cc-hud'>
-      <div class='cc-wing'>
-        <div class='cc-trophy'>🏆</div>
-        <div><div class='cc-pname'>${u.name.split(' ')[0]}</div><div class='cc-scorebox'><small>SCORE</small><strong>0</strong></div></div>
-      </div>
-      <div style='display:grid;place-items:center;font-weight:800;font-size:.75rem;color:#7dd3fc'>VS</div>
-      <div class='cc-wing'>
-        <div><div class='cc-pname'>Lawan</div><div class='cc-scorebox'><small>SCORE</small><strong>0</strong></div></div>
-        <div class='cc-trophy'>🏆</div>
-      </div>
-    </div>
-    <div class='cc-frame'>
-      <div class='cc-screen'>
-        <div class='cc-scr-head'>
-          <div class='cc-scr-title'>🏆 Cerdas Cermat</div>
-          <div class='cc-scr-timer'>⏱ 00:10</div>
-        </div>
-        <div class='cc-scr-body' style='text-align:center'>
-          <div class='cc-round-pill'>ARENA MULTIPLAYER REAL & BOT</div>
-          <div class='cc-qbox' style='margin-bottom:10px'>Pilih lawan pemain asli yang terdeteksi di bawah untuk duel langsung, atau berlatih melawan Bot!</div>
-          <button class='btn yl w' style='border-radius:999px;background:linear-gradient(180deg,#fde047,#eab308);border-color:#1e3a8a' onclick='startD()'>Latihan Cepat vs Bot ▶</button>
-        </div>
-      </div>
-    </div>
-    <div class='cc-floor'>
-      <div class='cc-podium'>
-        <div class='cc-buzzer-wrap'>
-          <button class='cc-buzzer' disabled aria-label='Bel Podium'><div class='cc-buzzer-base'></div><div class='cc-buzzer-dome'></div></button>
-        </div>
-        <div class='cc-desk'><span>Podium Peserta</span></div>
-      </div>
-    </div>
-  </div>
+   const s=stats();
+   const allPlayers = Object.values(ONLINE_USERS).filter(p => p && p.uid && p.uid !== u.uid);
+   const others = getOtherPlayers();
+   $('#main').innerHTML=`
+   <section class='pn hero'>
+     <div class='tag'>LIVE STUDIO ARENA</div>
+     <h1 class='ttl' style='font-size:1.3rem'>Cerdas Cermat 1v1</h1>
+     <p style='margin-top:6px'>Masuk ke panggung kuis futuristik, tekan BEL merah tercepat: benar +100, salah −50.</p>
+     <button class='btn yl w' style='margin-top:12px' onclick='startD()'>Latihan Cepat vs Bot Studio ▶</button>
+   </section>
 
-  <section class='pn'>
-    <div class='row bt' style='margin-bottom:8px'>
-      <div>
-        <h2 class='ttl' style='font-size:.98rem'>Pemain Real (${realOnline.length} Online)</h2>
-        <span class='mut' style='font-size:.72rem'>Buka tab/HP lain lalu masuk dengan nama berbeda untuk duel</span>
-      </div>
-      <button class='btn yl sm' onclick='refreshPlayersNow()' ${S.refreshing?'disabled':''}>${S.refreshing?'Memuat...':'🔄 Refresh'}</button>
-    </div>
-    <div class='row' style='margin-bottom:10px;gap:6px'>
-      <input class='inp' style='margin-top:0;padding:8px 10px;font-size:.82rem' type='text' placeholder='Cari nama pemain real...' value='${(S.searchQ||'').replace(/'/g,"&#39;")}' oninput='S.searchQ=this.value;render()' />
-      ${S.searchQ?`<button class='btn gh sm' onclick='S.searchQ="";render()'>✕</button>`:''}
-    </div>
-    ${allPlayers.length ? allPlayers.map(p=>{
-      const isOn = p.online && (Date.now()-(p.lastSeen||0))<90000;
-      return `<div class='it row bt'>
-        <div style='cursor:pointer;flex:1' onclick='openPlayerProfile("${p.uid}")'>
-          <div style='font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${p.name} <span class='mut' style='font-size:.7rem'>(${isOn?'Online':'Tersimpan'})</span></div>
-          <div class='mut'>Lv.${p.lv||0} • ${p.gr||'Pelajar'} (${p.g||'-'})</div>
-        </div>
-        <div class='row' style='gap:6px'>
-          <button class='btn gh sm' onclick='openPlayerProfile("${p.uid}")'>Profil</button>
-          <button class='btn sm' onclick='challengePlayer("${p.uid}")'>Duel</button>
-        </div>
-      </div>`;
-    }).join('') : `<div class='it mut'>Belum ada pemain dengan nama lain yang terdeteksi. Klik <b>🔄 Refresh</b> atau buka tab/perangkat lain lalu masuk dengan nama berbeda!</div>`}
-  </section>
+   <section class='pn'>
+     <div class='row bt' style='margin-bottom:6px'>
+       <h2 class='ttl' style='font-size:.98rem'>Pemain Real (${allPlayers.length})</h2>
+       <button class='btn gh sm' onclick='refreshPlayersNow()'>🔄 Refresh</button>
+     </div>
+     <div class='mut' style='font-size:.7rem;margin-bottom:6px'>Status: <b>${cloudStatus}</b></div>
+     <input id='search-player-inp' class='inp' style='margin-top:0;margin-bottom:8px;padding:8px 10px;font-size:.82rem' type='text' value="${(S.searchQ||'').replace(/"/g,'&quot;')}" placeholder='Cari nama pemain real...' oninput='setSearchPlayers(this.value)'>
+     ${others.length ? others.map(p => {
+       const isOn = isPlayerOnline(p);
+       return `
+       <div class='it row bt' style='gap:8px'>
+         <div style='min-width:0;flex:1'>
+           <div style='font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>
+             <span class='${isOn?'dot-on':'dot-off'}'></span>${p.name}
+           </div>
+           <div class='mut' style='font-size:.72rem'>${p.gr || 'Pelajar'} • Lv.${p.lv || 0} (${isOn?'Online':'Baru saja'})</div>
+         </div>
+         <div class='row' style='gap:5px;flex:none'>
+           <button class='btn gh sm' onclick='viewPlayerProfile("${p.uid}")'>Profil</button>
+           <button class='btn sm' onclick='challengePlayer("${p.uid}")'>Duel 🔔</button>
+         </div>
+       </div>`;
+     }).join('') : `<div class='it mut'>${S.searchQ ? 'Tidak ada nama pemain yang cocok dengan pencarian.' : 'Belum ada pemain lain terdeteksi. Buka tab/HP lain dan masuk dengan nama berbeda, lalu tekan 🔄 Refresh.'}</div>`}
+   </section>
 
-  <section class='pn'><h2 class='ttl' style='font-size:1rem'>Riwayat Duel</h2><p class='mut'>${s.dw} menang / ${s.dn} main</p>${S.w.duel.map(d=>`<div class='it row bt'><span><span class='tag' style='margin:0'>${d.o}</span> vs ${d.on}</span><b>${d.us} - ${d.os}</b></div>`).join('')||"<div class='it mut'>Belum ada duel.</div>"}</section>`;
-  return;
+   <section class='pn'>
+     <h2 class='ttl' style='font-size:1rem'>Riwayat Duel</h2>
+     <p class='mut'>${s.dw} menang / ${s.dn} main</p>
+     ${S.w.duel.map(d=>`<div class='it row bt'><span><span class='tag' style='margin:0'>${d.o}</span> vs ${d.on}</span><b>${d.us} - ${d.os}</b></div>`).join('')||"<div class='it mut'>Belum ada duel.</div>"}
+   </section>`;
+   return;
  }
-
  if(m.done){
-  $('#main').innerHTML=`
-  <div class='cc-stage' style='padding-bottom:18px;text-align:center'>
-    <div class='cc-frame'>
-      <div class='cc-screen'>
-        <div class='cc-scr-head'>
-          <div class='cc-scr-title'>🏆 Hasil Pertandingan</div>
-          <div class='cc-scr-timer'>SELESAI</div>
-        </div>
-        <div class='cc-scr-body'>
-          <div class='tag' style='margin-bottom:6px'>${m.o.toUpperCase()}</div>
-          <h1 class='ttl' style='font-size:1.35rem;margin-bottom:10px'>Duel Selesai!</h1>
-          <div class='g2' style='margin:10px 0'>
-            <div class='st'><strong>${m.us}</strong>${u.name.split(' ')[0]}</div>
-            <div class='st'><strong>${m.os}</strong>${m.on.split(' ')[0]}</div>
-          </div>
-          <button class='btn yl w' style='border-radius:999px;margin-top:8px' onclick='exitDuel();render()'>Kembali ke Lobi ▶</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-  return;
+   $('#main').innerHTML=`
+   <div class='cc-stage' style='padding-bottom:20px;text-align:center'>
+     <div class='cc-frame' style='margin-top:8px'>
+       <div class='cc-screen'>
+         <div class='cc-scr-head'>
+           <div class='cc-scr-title'>🏆 Hasil Akhir Studio</div>
+           <div class='cc-scr-timer'>SELESAI</div>
+         </div>
+         <div class='cc-scr-body' style='padding:16px 12px'>
+           <div class='tag'>${m.o.toUpperCase()}</div>
+           <h1 class='ttl' style='font-size:1.4rem;margin:6px 0'>Pertandingan Selesai!</h1>
+           <div class='g2' style='margin:12px 0'>
+             <div class='st'><strong>${m.us}</strong>${u.name.split(' ')[0]}</div>
+             <div class='st'><strong>${m.os}</strong>${m.on.split(' ')[0]}</div>
+           </div>
+           <button class='btn yl w' onclick='S.du=null;render()'>Kembali ke Lobi ▶</button>
+         </div>
+       </div>
+     </div>
+   </div>`;
+   return;
  }
-
- const q=m.qs[m.i],me=m.ph==='me'||m.ph==='rbme';
- const tFmt='00:'+String(Math.max(0,m.t)).padStart(2,'0');
+ const q=m.qs[m.i] || ['Matematika','Menyiapkan soal...','ABCD'.split(''),0],me=m.ph==='me'||m.ph==='rbme';
+ const tmFmt='00:'+String(m.t).padStart(2,'0');
  $('#main').innerHTML=`
  <div class='cc-stage'>
-  <div class='cc-hud'>
-    <div class='cc-wing ${me?'active':''}'>
-      <div class='cc-trophy'>🏆</div>
-      <div>
-        <div class='cc-pname'>${u.name.split(' ')[0]}</div>
-        <div class='cc-scorebox'><small>SCORE</small><strong>${m.us}</strong></div>
-      </div>
-    </div>
-    <button class='cc-exit' onclick='exitDuel();render()' title='Keluar Studio'>✕</button>
-    <div class='cc-wing ${m.ph==='opp'||m.ph==='rbop'?'active':''}'>
-      <div>
-        <div class='cc-pname'>${m.on.split(' ')[0]}</div>
-        <div class='cc-scorebox'><small>SCORE</small><strong>${m.os}</strong></div>
-      </div>
-      <div class='cc-trophy'>🏆</div>
-    </div>
-  </div>
+   <div class='cc-hud'>
+     <div class='cc-wing ${me?'active':''}'>
+       <div class='cc-trophy'>🏆</div>
+       <div>
+         <div class='cc-pname'>${u.name.split(' ')[0]}</div>
+         <div class='cc-scorebox'><small>SCORE</small><strong>${m.us}</strong></div>
+       </div>
+     </div>
+     <button class='cc-exit' onclick='exitDuel();render()' title='Keluar Studio'>✕</button>
+     <div class='cc-wing ${(m.ph==='opp'||m.ph==='rbop')?'active':''}'>
+       <div style='text-align:right'>
+         <div class='cc-pname'>${m.on.split(' ')[0]}</div>
+         <div class='cc-scorebox'><small>SCORE</small><strong>${m.os}</strong></div>
+       </div>
+       <div class='cc-trophy'>🏆</div>
+     </div>
+   </div>
 
-  <div class='cc-frame'>
-    <div class='cc-screen'>
-      <div class='cc-scr-head'>
-        <div class='cc-scr-title'>🏆 Cerdas Cermat ${m.live?'(LIVE)':''}</div>
-        <div class='cc-scr-timer' id='dtm'>⏱ ${tFmt}</div>
-      </div>
-      <div class='cc-scr-body'>
-        <div class='row bt'>
-          <span class='cc-round-pill'>SOAL ${m.i+1} / ${m.qs.length}</span>
-          <span style='font-size:.66rem;font-weight:800;color:#64748b'>${q[0]}</span>
-        </div>
-        <div class='cc-qbox'>${q[1]}</div>
-        <div class='cc-opts'>
-          ${q[2].map((o,i)=>{
-            const rv=m.ph==='rev';
-            const c=rv?(i===q[3]?'ok':(i===m.ch||i===m.el?'no':'')):(m.el===i?'no':(m.ch===i?'on':''));
-            return `<button class='cc-opt ${c}' ${me&&m.el!==i?'':'disabled'} onclick='ans(${i})'><b>${'ABCD'[i]}.</b><span>${o}</span></button>`;
-          }).join('')}
-        </div>
-        <div class='cc-status'>${m.msg}</div>
-        ${m.ph==='rbme'?"<button class='btn gh sm w' style='margin-top:6px;border-radius:999px' onclick='pass()'>Lewati Lemparan (Skor Aman)</button>":''}
-      </div>
-    </div>
-  </div>
+   <div class='cc-frame'>
+     <div class='cc-screen'>
+       <div class='cc-scr-head'>
+         <div class='cc-scr-title'><span>🏆</span><span>Cerdas Cermat</span></div>
+         <div class='cc-scr-timer'>⏱ <span id='dtm'>${tmFmt}</span></div>
+       </div>
+       <div class='cc-scr-body'>
+         <div style='display:flex;justify-content:space-between;align-items:center'>
+           <span class='cc-round-pill'>SOAL ${m.i+1} / ${m.qs.length}</span>
+           <span style='font-size:.66rem;font-weight:800;color:#64748b'>${q[0]}</span>
+         </div>
+         <div class='cc-qbox'>${q[1]}</div>
+         <div class='cc-opts'>
+           ${q[2].map((o,i)=>{
+             const rv=m.ph==='rev';
+             const c=rv?(i===q[3]?'ok':(i===m.ch||i===m.el?'no':'')):(m.el===i?'no':(m.ch===i?'on':''));
+             return `<button class='cc-opt ${c}' ${me&&m.el!==i?'':'disabled'} onclick='ans(${i})'><b>${'ABCD'[i]}.</b><span>${o}</span></button>`;
+           }).join('')}
+         </div>
+         <div class='cc-status'>${m.msg}</div>
+         ${m.ph==='rbme'?"<button class='btn gh sm w' style='margin-top:8px' onclick='pass()'>Lewati lemparan (skor aman)</button>":''}
+       </div>
+     </div>
+   </div>
 
-  <div class='cc-floor'>
-    <div class='cc-podium'>
-      <div class='cc-buzzer-wrap'>
-        <button class='cc-buzzer' ${m.ph==='buzz'?'':'disabled'} onclick='buzz()' aria-label='Tekan Bel Cerdas Cermat'>
-          <div class='cc-buzzer-base'></div>
-          <div class='cc-buzzer-dome'></div>
-        </button>
-      </div>
-      <div class='cc-desk'><span>${m.ph==='buzz'?'TEKAN BEL MERAH!':'PODIUM PESERTA'}</span></div>
-    </div>
-  </div>
+   <div class='cc-floor'>
+     <div class='cc-podium'>
+       <div class='cc-buzzer-wrap'>
+         <button class='cc-buzzer' ${m.ph==='buzz'?'':'disabled'} onclick='buzz()' aria-label='Tekan Bel Merah'>
+           <span class='cc-buzzer-base'></span>
+           <span class='cc-buzzer-dome'></span>
+         </button>
+       </div>
+       <div class='cc-desk'>
+         <span>${m.ph==='buzz'?'TEKAN BEL MERAH!':(me?'PILIH JAWABANMU!':'MENUNGGU...')}</span>
+       </div>
+     </div>
+   </div>
  </div>`;
 }
-
-function startD(){if(S.du)exitDuel();S.du={live:false,on:S.user.g==='Laki-laki'?'Raka Pratama':'Alya Putri',qs:shuf(Q.slice()).slice(0,4),i:0,us:0,os:0,t:10,ph:'buzz',msg:'Juri membacakan soal! Tekan BEL merah sekarang!',ch:null,el:null,tm:0,done:false};S.du.iv=setInterval(tickDuel,1000);roundStart();render()}
-function tickDuel(){const m=S.du;if(!m||m.done||m.live)return;if(m.t>0)m.t--;const el=document.getElementById('dtm');if(el)el.textContent='⏱ 00:'+String(m.t).padStart(2,'0')}
-function roundStart(){const m=S.du;if(!m)return;clearTimeout(m.tm);m.ph='buzz';m.el=null;m.ch=null;m.t=10;const delay=2500+Math.random()*3000;m.tm=setTimeout(oppBuzz,delay);m.ph0=Date.now()}
-function oppBuzz(){const m=S.du;if(!m||m.ph!=='buzz')return;clearTimeout(m.tm);m.ph='opp';m.msg=m.on+' menekan bel duluan!';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',m.qs[m.i][3])}else{m.os-=50;m.ph='rbme';m.el=null;m.msg='Salah (−50)! Soal lemparan untukmu.';m.t=7;render();m.tm=setTimeout(()=>reveal('Lemparan dilewati.',m.qs[m.i][3]),7000)}},1200)}
+function startD(){if(S.du)exitDuel();S.du={live:false,on:S.user.g==='Laki-laki'?'Raka Pratama':'Alya Putri',qs:shuf(Q.slice()).slice(0,4),i:0,us:0,os:0,t:10,ph:'buzz',msg:'Juri membacakan soal! Tekan BEL merah!',ch:null,el:null,tm:0,done:false};S.du.iv=setInterval(tickDuel,1000);roundStart();render()}
+function tickDuel(){const m=S.du;if(!m||m.done||m.live)return;if(m.t>0)m.t--;const el=document.getElementById('dtm');if(el)el.textContent='00:'+String(m.t).padStart(2,'0')}
+function roundStart(){const m=S.du;if(!m||m.live)return;clearTimeout(m.tm);m.ph='buzz';m.el=null;m.ch=null;m.t=10;const delay=2500+Math.random()*3000;m.tm=setTimeout(oppBuzz,delay);m.ph0=Date.now()}
+function oppBuzz(){const m=S.du;if(!m||m.live||m.ph!=='buzz')return;clearTimeout(m.tm);m.ph='opp';m.msg=m.on+' menekan bel duluan!';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',m.qs[m.i][3])}else{m.os-=50;m.ph='rbme';m.el=null;m.msg='Salah (−50)! Soal lemparan untukmu.';m.t=7;render();m.tm=setTimeout(()=>reveal('Lemparan dilewati.',m.qs[m.i][3]),7000)}},1200)}
 async function buzz(){
   const m=S.du;if(!m||m.ph!=='buzz')return;
-  if(m.live && m.room){
-    const r = m.room;
-    if(r.ph !== 'buzz') return;
-    await pushRoomUpdate({
-      ph: 'ans',
-      holder: S.user.uid,
-      msg: S.user.name + ' menekan BEL duluan! Pilih jawaban...',
-      deadline: Date.now() + 10000
-    });
+  if(m.live && db && m.roomId){
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
+    const snap = await getDoc(roomRef).catch(()=>null);
+    if(snap && snap.exists() && snap.data().phase === 'buzz'){
+      await updateDoc(roomRef, {
+        phase: 'ans',
+        holderUid: S.user.uid,
+        msg: S.user.name + ' menekan BEL duluan! Pilih jawaban!',
+        roundDeadline: Date.now() + 10000
+      }).catch(()=>{});
+    }
     return;
   }
   clearTimeout(m.tm);m.ph='me';m.msg='BEL! Pilih jawabanmu (benar +100, salah −50).';m.t=10;render();m.tm=setTimeout(()=>{if(S.du===m&&m.ph==='me'){m.us-=50;m.msg='Waktu habis (−50). Soal dilempar ke lawan.';m.ph='rbop';m.t=6;render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',m.qs[m.i][3])}else reveal('Lawan juga salah.',m.qs[m.i][3])},1600)}},10000);
 }
 async function ans(i){
-  const m=S.du;if(!m)return;const q=m.qs[m.i];
-  if(m.live && m.room){
-    const r = m.room;
-    const myKey = m.amP1 ? 'p1' : 'p2';
-    const oppUid = m.amP1 ? r.p2.uid : r.p1.uid;
-    const oppName = m.amP1 ? r.p2.name : r.p1.name;
-    const curScore = r[myKey].score;
-    if(m.ph === 'me'){
-      if(i === q[3]){
-        const updatedP = { ...r[myKey], score: curScore + 100 };
-        await pushRoomUpdate({
-          [myKey]: updatedP,
-          ph: 'rev',
-          ch: i,
-          msg: S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.',
-          deadline: Date.now() + 2500
-        });
-        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
+  const m=S.du;if(!m)return;
+  if(m.live && db && m.roomId){
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
+    const snap = await getDoc(roomRef).catch(()=>null);
+    if(!snap || !snap.exists()) return;
+    const r = snap.data();
+    if(r.holderUid !== S.user.uid) return;
+    const q = r.qs[r.round];
+    const amP1 = r.p1Uid === S.user.uid;
+    const oppUid = amP1 ? r.p2Uid : r.p1Uid;
+    if(r.phase === 'ans'){
+      if(i === q.ans){
+        await updateDoc(roomRef, {
+          s1: amP1 ? r.s1 + 100 : r.s1,
+          s2: amP1 ? r.s2 : r.s2 + 100,
+          phase: 'rev',
+          lastChoice: i,
+          msg: S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q.ans] + '.',
+          roundDeadline: Date.now() + 2500
+        }).catch(()=>{});
       }else{
-        const updatedP = { ...r[myKey], score: curScore - 50 };
-        await pushRoomUpdate({
-          [myKey]: updatedP,
-          ph: 'rb',
-          holder: oppUid,
-          el: i,
-          msg: S.user.name + ' salah (−50)! Soal lemparan untuk ' + oppName + '.',
-          deadline: Date.now() + 8000
-        });
+        await updateDoc(roomRef, {
+          s1: amP1 ? r.s1 - 50 : r.s1,
+          s2: amP1 ? r.s2 : r.s2 - 50,
+          phase: 'rebound',
+          holderUid: oppUid,
+          eliminatedUid: S.user.uid,
+          lastChoice: i,
+          msg: S.user.name + ' salah (−50)! Lemparan untuk ' + m.on + '!',
+          roundDeadline: Date.now() + 8000
+        }).catch(()=>{});
       }
-    }else if(m.ph === 'rbme'){
-      if(i === q[3]){
-        const updatedP = { ...r[myKey], score: curScore + 100 };
-        await pushRoomUpdate({
-          [myKey]: updatedP,
-          ph: 'rev',
-          ch: i,
-          msg: 'Lemparan ' + S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.',
-          deadline: Date.now() + 2500
-        });
-        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
+    }else if(r.phase === 'rebound'){
+      if(i === q.ans){
+        await updateDoc(roomRef, {
+          s1: amP1 ? r.s1 + 100 : r.s1,
+          s2: amP1 ? r.s2 : r.s2 + 100,
+          phase: 'rev',
+          lastChoice: i,
+          msg: 'Lemparan ' + S.user.name + ' tepat (+100)! Kunci: ' + 'ABCD'[q.ans] + '.',
+          roundDeadline: Date.now() + 2500
+        }).catch(()=>{});
       }else{
-        await pushRoomUpdate({
-          ph: 'rev',
-          ch: i,
-          msg: 'Lemparan kurang tepat, skor aman. Kunci: ' + 'ABCD'[q[3]] + '.',
-          deadline: Date.now() + 2500
-        });
-        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
+        await updateDoc(roomRef, {
+          phase: 'rev',
+          lastChoice: i,
+          msg: 'Lemparan kurang tepat. Kunci: ' + 'ABCD'[q.ans] + '.',
+          roundDeadline: Date.now() + 2500
+        }).catch(()=>{});
       }
     }
     return;
   }
-  clearTimeout(m.tm);if(m.ph==='me'){if(i===q[3]){m.us+=100;reveal('Tepat! +100.',q[3],i)}else{m.us-=50;m.el=i;m.ph='rbop';m.msg='Salah (−50). Lemparan ke lawan…';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',q[3],i)}else reveal('Lawan juga salah.',q[3],i)},1600)}}else if(m.ph==='rbme'){if(i===q[3]){m.us+=100;reveal('Lemparan benar! +100.',q[3],i)}else reveal('Kurang tepat, skormu aman.',q[3],i)}
+  const q=m.qs[m.i];clearTimeout(m.tm);if(m.ph==='me'){if(i===q[3]){m.us+=100;reveal('Tepat! +100.',q[3],i)}else{m.us-=50;m.el=i;m.ph='rbop';m.msg='Salah (−50). Lemparan ke lawan…';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',q[3],i)}else reveal('Lawan juga salah.',q[3],i)},1600)}}else if(m.ph==='rbme'){if(i===q[3]){m.us+=100;reveal('Lemparan benar! +100.',q[3],i)}else reveal('Kurang tepat, skormu aman.',q[3],i)}
 }
 async function pass(){
   const m=S.du;if(!m||m.ph!=='rbme')return;
-  if(m.live && m.room){
-    await pushRoomUpdate({
-      ph: 'rev',
-      msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[m.qs[m.i][3]] + '.',
-      deadline: Date.now() + 2500
-    });
-    setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
+  if(m.live && db && m.roomId){
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId);
+    const snap = await getDoc(roomRef).catch(()=>null);
+    if(snap && snap.exists()){
+      const r = snap.data(), q = r.qs[r.round];
+      await updateDoc(roomRef, {
+        phase: 'rev',
+        msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[q.ans] + '.',
+        roundDeadline: Date.now() + 2200
+      }).catch(()=>{});
+    }
     return;
   }
   clearTimeout(m.tm);reveal('Kamu melewati lemparan.',m.qs[m.i][3]);
@@ -1376,89 +1279,42 @@ function exitDuel(){if(unsubRoom){unsubRoom();unsubRoom=null}if(S.du){clearTimeo
 
 /* ---------- PAIR ---------- */
 function tabPair(){const p=S.w.pair;
- if(!p.on){$('#main').innerHTML=`<section class='pn hero' style='text-align:center;padding:24px 16px'><h1 class='ttl' style='font-size:1.2rem'>Belum Punya Partner</h1><p style='margin:8px 0;font-weight:700'>Bangun konsistensi bersama satu partner sesama gender (${S.user.g}). Tanpa chat bebas.</p><button class='btn yl w' onclick='connectPair()'>Hubungkan Partner ▶</button></section>`;return}
- $('#main').innerHTML=`<section class='pn hero'><div class='ttl' style='font-size:2rem'>${p.streak} <span style='font-size:1rem'>Day Streak</span></div><b>Bersama ${p.pn}</b></section><section class='pn'><div class='row bt'>${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map((d,i)=>`<div style='text-align:center'><div class='mut'>${d}</div><div class='kj' style='width:34px;height:34px;font-size:.9rem;margin:4px auto 0;${p.days[i]?'':'background:var(--card)'}'>${p.days[i]?'★':'·'}</div></div>`).join('')}</div></section><section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Catatan Bersama</h2>${p.logs.map(l=>`<div class='it'>${l}</div>`).join('')||"<div class='it mut'>Belum ada catatan. Selesaikan misi untuk menyalakan streak!</div>"}<button class='btn gh sm w' style='margin-top:12px' onclick='disconnectPair()'>Akhiri Hubungan Pair</button></section>`}
-function connectPair(){
-  readSharedDirectory();
-  const realSameG = Object.values(ONLINE_USERS).find(x=>x && x.uid!==S.user.uid && x.g===S.user.g);
-  const partnerName = realSameG ? realSameG.name : (S.user.g==='Laki-laki'?'Raka Pratama':'Siti Rahma');
-  S.w.pair.on=true;
-  S.w.pair.pn=partnerName;
-  S.w.pair.logs=[partnerName+' menyelesaikan Latsol Aljabar (90%)'];
-  act('Terhubung dengan '+partnerName,'Pair sesama gender');
-  render();
-}
-function disconnectPair(){
-  S.w.pair.on=false;
-  S.w.pair.logs=[];
-  syncUserCloud();
-  render();
-}
+ if(!p.on){$('#main').innerHTML=`<section class='pn hero' style='text-align:center;padding:24px 16px'><h1 class='ttl' style='font-size:1.2rem'>Belum Punya Partner</h1><p style='margin:8px 0;font-weight:700'>Bangun konsistensi bersama satu partner sesama gender (${S.user.g}). Tanpa chat bebas.</p><button class='btn yl w' onclick='S.w.pair.on=true;S.w.pair.pn=S.user.g==="Laki-laki"?"Raka Pratama":"Siti Rahma";S.w.pair.logs=[S.w.pair.pn+" menyelesaikan Latsol Aljabar (90%)"];act("Terhubung dengan "+S.w.pair.pn,"Pair sesama gender");render()'>Hubungkan Partner ▶</button></section>`;return}
+ $('#main').innerHTML=`<section class='pn hero'><div class='ttl' style='font-size:2rem'>${p.streak} <span style='font-size:1rem'>Day Streak</span></div><b>Bersama ${p.pn}</b></section><section class='pn'><div class='row bt'>${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map((d,i)=>`<div style='text-align:center'><div class='mut'>${d}</div><div class='kj' style='width:34px;height:34px;font-size:.9rem;margin:4px auto 0;${p.days[i]?'':'background:var(--card)'}'>${p.days[i]?'★':'·'}</div></div>`).join('')}</div></section><section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Catatan Bersama</h2>${p.logs.map(l=>`<div class='it'>${l}</div>`).join('')||"<div class='it mut'>Belum ada catatan. Selesaikan misi untuk menyalakan streak!</div>"}<button class='btn gh sm w' style='margin-top:12px' onclick='S.w.pair.on=false;S.w.pair.logs=[];render()'>Akhiri Hubungan Pair</button></section>`}
 
-/* ---------- PROFIL ---------- */
+/* ---------- PROFIL & KOMUNITAS PEMAIN REAL ---------- */
 function tabProfil(){
-  readSharedDirectory();
-  const s=stats(),u=S.user,A=[['Bara Pertama','Naikkan aura minimal Lv.1',s.lv>=1],['Penjelajah Konsep','Selesaikan 1 bab',s.d>=1],['Ketajaman Logika','Selesaikan 1 sesi Latsol',s.pc>=1],['Juara Arena','Menangkan 1 duel',s.dw>=1]];
-  const others = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid);
-  $('#main').innerHTML=`<section class='pn hero'><div class='row'><div class='kj' style='width:60px;height:60px;font-size:1.6rem'>${u.name[0].toUpperCase()}</div><div><h1 class='ttl' style='font-size:1.1rem'>${u.name}</h1><div style='font-weight:700'>${u.gr} • ${u.g}</div><div class='tag' style='margin-top:6px'>Aura Lv.${s.lv} • ${LV[s.lv]}</div></div></div></section>
-  <div class='g4' style='margin-bottom:16px'>${[[s.d,'Materi'],[s.pc,'Latsol'],[s.dw,'Menang'],[s.pct+'%','Progres']].map(x=>`<div class='st'><strong>${x[0]}</strong><span class='mut'>${x[1]}</span></div>`).join('')}</div>
-  <section class='pn'><div class='row bt' style='margin-bottom:6px'><h2 class='ttl' style='font-size:1rem'>Komunitas Pemain (${others.length})</h2><button class='btn gh sm' onclick='refreshPlayersNow()'>🔄</button></div>${others.length?others.map(p=>{const isOn=p.online&&(Date.now()-(p.lastSeen||0))<90000;return `<div class='it row bt' style='cursor:pointer' onclick='openPlayerProfile("${p.uid}")'><span><i class='${isOn?'dot-on':'dot-off'}'></i><b>${p.name}</b> <span class='mut'>(Lv.${p.lv||0})</span><br><span class='mut'>${p.gr||'Pelajar'} • ${p.g||'-'}</span></span><span class='tag' style='margin:0'>LIHAT</span></div>`}).join(''):"<div class='it mut'>Belum ada pemain lain terdaftar.</div>"}</section>
-  <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Pencapaian</h2>${A.map(a=>`<div class='it row bt' style='opacity:${a[2]?1:.55}'><span><b>${a[0]}</b><br><span class='mut'>${a[1]}</span></span><span class='tag' style='margin:0'>${a[2]?'TERCAPAI':'TERKUNCI'}</span></div>`).join('')}</section>
-  <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Riwayat Aktivitas</h2>${S.w.act.slice(0,6).map(a=>`<div class='it'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join('')||"<div class='it mut'>Belum ada aktivitas.</div>"}</section>
-  <button class='btn gh w' onclick='logout()'>Keluar dari Akun</button>`;
+ const s=stats(),u=S.user,A=[['Bara Pertama','Naikkan aura minimal Lv.1',s.lv>=1],['Penjelajah Konsep','Selesaikan 1 bab',s.d>=1],['Ketajaman Logika','Selesaikan 1 sesi Latsol',s.pc>=1],['Juara Arena','Menangkan 1 duel',s.dw>=1]];
+ const others = Object.values(ONLINE_USERS).filter(p => p && p.uid && p.uid !== u.uid);
+ $('#main').innerHTML=`<section class='pn hero'><div class='row'><div class='kj' style='width:60px;height:60px;font-size:1.6rem'>${u.name[0].toUpperCase()}</div><div><h1 class='ttl' style='font-size:1.1rem'>${u.name}</h1><div style='font-weight:700'>${u.gr} • ${u.g} (Guest)</div><div class='tag' style='margin-top:6px'>Aura Lv.${s.lv} • ${LV[s.lv]}</div></div></div></section>
+ <div class='g4' style='margin-bottom:16px'>${[[s.d,'Materi'],[s.pc,'Latsol'],[s.dw,'Menang'],[s.pct+'%','Progres']].map(x=>`<div class='st'><strong>${x[0]}</strong><span class='mut'>${x[1]}</span></div>`).join('')}</div>
+ <section class='pn'><div class='row bt' style='margin-bottom:6px'><h2 class='ttl' style='font-size:1rem'>Komunitas Pemain Real</h2><button class='btn gh sm' onclick='refreshPlayersNow()'>🔄</button></div>${others.length?others.map(p=>{const isOn=isPlayerOnline(p);return `<div class='it row bt'><span><span class='${isOn?'dot-on':'dot-off'}'></span><b>${p.name}</b><br><span class='mut'>${p.gr||'Pelajar'} • Lv.${p.lv||0}</span></span><button class='btn gh sm' onclick='viewPlayerProfile("${p.uid}")'>Lihat Profil</button></div>`}).join(''):"<div class='it mut'>Belum ada pemain lain yang masuk saat ini.</div>"}</section>
+ <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Pencapaian</h2>${A.map(a=>`<div class='it row bt' style='opacity:${a[2]?1:.55}'><span><b>${a[0]}</b><br><span class='mut'>${a[1]}</span></span><span class='tag' style='margin:0'>${a[2]?'TERCAPAI':'TERKUNCI'}</span></div>`).join('')}</section>
+ <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Riwayat Aktivitas</h2>${S.w.act.slice(0,6).map(a=>`<div class='it'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join('')||"<div class='it mut'>Belum ada aktivitas.</div>"}</section>
+ <button class='btn gh w' onclick='logout()'>Keluar dari Akun</button>`;
 }
 
 async function logout(){
   saveMap();
   exitDuel();
-  clearSessionState();
-  if(S.user){
-    if(ONLINE_USERS[S.user.uid]){
-      ONLINE_USERS[S.user.uid].online = false;
-      writeSharedPlayer(ONLINE_USERS[S.user.uid]);
-    }
-    sendCrossTabSignal({ type: 'PLAYER_OFFLINE', uid: S.user.uid });
-    if(db && auth?.currentUser){
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { online: false, lastSeen: Date.now() }).catch(()=>{});
-      if(fbUid){
-        await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), { activeUser: null }, { merge: true }).catch(()=>{});
-      }
+  if(S.user && db){
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { online: false, lastSeen: Date.now() }).catch(()=>{});
+    if(fbUid){
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state')).catch(()=>{});
     }
   }
-  if(unsubPlayers){ unsubPlayers(); unsubPlayers = null; }
-  if(unsubInvites){ unsubInvites(); unsubInvites = null; }
-  if(hbTimer){ clearInterval(hbTimer); hbTimer = null; }
+  try{ sessionStorage.removeItem(SS_USER_KEY); }catch(_){}
   S.user=null;S.w=null;render();
 }
 
-window.loginGuest = loginGuest;
-window.refreshPlayersNow = refreshPlayersNow;
-window.openPlayerProfile = openPlayerProfile;
-window.challengePlayer = challengePlayer;
-window.cancelInvite = cancelInvite;
-window.respondInvite = respondInvite;
-window.cm = cm;
-window.go = go;
-window.menuMap = menuMap;
-window.mapTap = mapTap;
-window.stp = stp;
-window.leaveL = leaveL;
-window.selQ = selQ;
-window.subQ = subQ;
-window.startP = startP;
-window.selP = selP;
-window.subP = subP;
-window.startD = startD;
-window.buzz = buzz;
-window.ans = ans;
-window.pass = pass;
-window.exitDuel = exitDuel;
-window.connectPair = connectPair;
-window.disconnectPair = disconnectPair;
-window.logout = logout;
-window.encAns = encAns;
-window.render = render;
-window.S = S;
+/* ---------- EXPOSE GLOBAL UNTUK INLINE ONCLICK ---------- */
+Object.assign(window, {
+  S, cm, menuMap, openL, stp, leaveL, selQ, subQ, finHarta,
+  startP, selP, subP, startD, buzz, ans, pass, exitDuel,
+  go, loginGuest, logout, mapTap, encAns,
+  viewPlayerProfile, challengePlayer, cancelInvite, respondInvite,
+  refreshPlayersNow, setSearchPlayers
+});
 
 /* ---------- MULAI ---------- */
 let JP=null;
@@ -1471,7 +1327,9 @@ document.addEventListener('pointercancel',e=>{if(e.pointerId===JP)joyEnd()});
 const KM={ArrowUp:'u',w:'u',W:'u',ArrowDown:'d',s:'d',S:'d',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 window.addEventListener('keydown',e=>{const m=KM[e.key];if(m){KB[m]=1;if(e.key.startsWith('Arrow')&&S.tab==='belajar'&&!S.les)e.preventDefault()}if(e.key==='e'||e.key==='E'||e.key==='Enter'||e.key===' '){if(mapActive())mapTap()}});
 window.addEventListener('keyup',e=>{const m=KM[e.key];if(m)KB[m]=0});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){joyEnd();KB.u=KB.d=KB.l=KB.r=0;saveMap()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){joyEnd();KB.u=KB.d=KB.l=KB.r=0;saveMap();syncUserCloud()}});
+
+render();
 restoreSessionOnLoad();
 </script></body></html>
 ```
