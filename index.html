@@ -968,7 +968,6 @@ Satu pusat informasi untuk meninjau kemajuan roadmap, akurasi latihan soal, penc
 <p>
 Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidup. Pelajar mengamati bagaimana suatu kurva bekerja dan alasan terbentuknya sebuah rumus sebelum memasuki tahap latihan.
 </p>
-<button class="btn-primary" onclick="openDoc('privacy')">Kebijakan Privasi & Ketentuan</button>
 </div>
 
 <div class="device-frame">
@@ -996,7 +995,7 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 <h2 class="eco-title">Dirancang untuk <em>Kenyamanan</em> Pelajar.</h2>
 </div>
 
-<div class="pillars-row">
+<div class="pillars-row" style="grid-template-columns: repeat(3, 1fr);">
 <div class="pillar-card">
 <span>01 // HENING</span>
 <h4>Tanpa Notifikasi</h4>
@@ -1008,12 +1007,7 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 <p>Pencocokan Pair dan Cerdas Cermat berlangsung sesama gender tanpa fitur percakapan bebas.</p>
 </div>
 <div class="pillar-card">
-<span>03 // ORISINALITAS</span>
-<h4>Konten Berlisensi</h4>
-<p>Seluruh materi, soal latihan, dan aset visual disusun secara orisinal dengan lisensi yang jelas.</p>
-</div>
-<div class="pillar-card">
-<span>04 // PRIVASI</span>
+<span>03 // PRIVASI</span>
 <h4>Kendali Pengguna</h4>
 <p>Persetujuan berbagi progres pada fitur Pair bersifat sukarela dan dapat dicabut kapan saja.</p>
 </div>
@@ -1028,8 +1022,6 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 </div>
 
 <div class="cta-row">
-<button class="btn-outline" onclick="openDoc('privacy')">Privacy Policy</button>
-<button class="btn-outline" onclick="openDoc('terms')">Terms of Use</button>
 <button class="btn-primary" onclick="goScene(0)">Ke Awal Halaman ↑</button>
 </div>
 </div>
@@ -1056,22 +1048,9 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 </div>
 </div>
 
-<!-- DOCUMENT MODAL DRAWER -->
-<div class="drawer" id="docDrawer" onclick="closeDoc()">
-<div class="drawer-box" onclick="event.stopPropagation()">
-<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line-light);margin-bottom:18px;">
-<span id="drawerTag" style="font-family:var(--mono);font-size:0.7rem;color:var(--ember);font-weight:700;">DOKUMEN</span>
-<button onclick="closeDoc()" style="background:none;border:0;font-family:var(--mono);font-size:0.9rem;cursor:pointer;">✕</button>
-</div>
-<h3 id="drawerTitle" style="font-size:1.65rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:14px;"></h3>
-<div id="drawerBody" style="display:flex;flex-direction:column;gap:12px;font-size:0.95rem;line-height:1.68;color:#3B3832;"></div>
-</div>
-</div>
-
 <script>
 const LOGO_PATH_STR = "M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z";
 
-// 1. Smooth Flame + Logo Opening Curtain
 (function runSplash() {
 const c = document.getElementById('flameCanvas');
 if (!c) return;
@@ -1123,7 +1102,6 @@ if (splashEl) splashEl.classList.add('done');
 requestAnimationFrame(frame);
 })();
 
-// 2. ULTRA-SMOOTH SPRING INTERTIA ENGINE
 const SCENE_NAMES = ['BERANDA', 'PENDEKATAN', 'EKOSISTEM PRODUK', 'STUDIO VISUAL', 'STANDAR KEPERCAYAAN'];
 const scenes = Array.from(document.querySelectorAll('.scene'));
 const reels = Array.from(document.querySelectorAll('.reel'));
@@ -1165,8 +1143,6 @@ document.querySelectorAll('.hud-link').forEach((l, i) => l.classList.toggle('act
 }
 
 window.addEventListener('wheel', (e) => {
-const drawer = document.getElementById('docDrawer');
-if (drawer && drawer.classList.contains('open')) return;
 const dominant = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
 if (Math.abs(dominant) < 10) return;
 const now = performance.now();
@@ -1176,11 +1152,6 @@ stepScene(dominant > 0 ? 1 : -1);
 }, { passive: true });
 
 window.addEventListener('keydown', (e) => {
-const drawer = document.getElementById('docDrawer');
-if (drawer && drawer.classList.contains('open')) {
-if (e.key === 'Escape') closeDoc();
-return;
-}
 if (e.key === 'ArrowRight' || e.key === 'PageDown') stepScene(1);
 if (e.key === 'ArrowLeft' || e.key === 'PageUp') stepScene(-1);
 });
@@ -1201,7 +1172,6 @@ stepScene(dx < 0 ? 1 : -1);
 }, { passive: true });
 }
 
-// 3. Out-of-the-Box Cinema Choreography + Monumental Kinetic Emblem with Spring Physics
 (function initSpatialStage() {
 const canvas = document.getElementById('heroField');
 if (!canvas) return;
@@ -1439,7 +1409,6 @@ requestAnimationFrame(animate);
 requestAnimationFrame(animate);
 })();
 
-// 4. Digital Whiteboard Visual Preview
 let boardMode = 'wave';
 function setBoardMode(mode) {
 boardMode = mode;
@@ -1530,7 +1499,6 @@ requestAnimationFrame(draw);
 requestAnimationFrame(draw);
 })();
 
-// 5. GPU-Accelerated Cursor Follower
 const ring = document.getElementById('cursorRing');
 window.addEventListener('pointermove', (e) => {
 if (!ring) return;
@@ -1541,47 +1509,9 @@ el.addEventListener('mouseenter', () => ring && ring.classList.add('expand'));
 el.addEventListener('mouseleave', () => ring && ring.classList.remove('expand'));
 });
 
-// 6. Product Reel Switcher
 function activateReel(card) {
 document.querySelectorAll('.reel').forEach((c) => c.classList.remove('active'));
 card.classList.add('active');
-}
-
-// 7. Policy Drawer
-const DOC_DATA = {
-privacy: {
-tag: 'KEBIJAKAN PRIVASI • RASCADEMY',
-title: 'Transparansi Data & Perlindungan Pelajar',
-items: [
-'<strong>Informasi yang Digunakan:</strong> Rascademy mengelola informasi akun dasar, jenis kelamin (untuk pencocokan sesama gender pada Pair dan Cerdas Cermat), progres belajar, dan riwayat latihan.',
-'<strong>Tanpa Layanan Percakapan:</strong> Aplikasi hadir tanpa fitur chat teks, suara, maupun video antarpengguna serta tidak menyimpan isi percakapan apa pun.',
-'<strong>Persetujuan pada Fitur Pair:</strong> Berbagi progres dan target belajar berlangsung atas persetujuan kedua pengguna dan dapat dicabut kapan pun.',
-'<strong>Lingkungan Tenang Tanpa Notifikasi:</strong> Rascademy beroperasi tanpa push notification, SMS, maupun email pengingat.'
-]
-},
-terms: {
-tag: 'KETENTUAN PENGGUNAAN • RASCADEMY',
-title: 'Pedoman Layanan Pembelajaran',
-items: [
-'<strong>Fokus Akademik:</strong> Layanan Rascademy disediakan sebagai sarana pembelajaran matematika berbasis pemahaman konsep secara mandiri dan kolaboratif.',
-'<strong>Hak Cipta Konten:</strong> Materi papan tulis digital, grafik, soal latihan, dan identitas visual Rascademy dilindungi hak cipta serta ditujukan bagi keperluan belajar pribadi.',
-'<strong>Sportivitas Kompetisi:</strong> Cerdas Cermat berlangsung secara akademik, gratis tanpa biaya pendaftaran, bebas dari unsur taruhan, dan mencocokkan peserta sesama gender.'
-]
-}
-};
-
-function openDoc(key) {
-const d = DOC_DATA[key];
-if (!d) return;
-document.getElementById('drawerTag').textContent = d.tag;
-document.getElementById('drawerTitle').textContent = d.title;
-document.getElementById('drawerBody').innerHTML = d.items.map((t) => '<p>' + t + '</p>').join('');
-document.getElementById('docDrawer').classList.add('open');
-}
-
-function closeDoc() {
-const drawer = document.getElementById('docDrawer');
-if (drawer) drawer.classList.remove('open');
 }
 </script>
 </body>
