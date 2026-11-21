@@ -274,9 +274,161 @@ body{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:500;color:
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const $=s=>document.querySelector(s);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+let db = null, auth = null, fbUid = null, unsubPlayers = null, unsubInvites = null, unsubRoom = null, hbTimer = null;
+const ONLINE_USERS = {};
+const BC = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('rascademy_live_' + appId) : null;
+const LS_PLAYERS_KEY = 'rascademy_shared_players_' + appId;
+const LS_SIGNAL_KEY = 'rascademy_shared_signal_' + appId;
+const SS_USER_KEY = 'rascademy_tab_user_' + appId;
+
+function nameToKey(name){
+  const clean = (name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return 'player_' + (clean || 'guest');
+}
+
+function readSharedDirectory(){
+  try{
+    const raw = window.localStorage ? localStorage.getItem(LS_PLAYERS_KEY) : null;
+    if(!raw) return;
+    const map = JSON.parse(raw);
+    if(map && typeof map === 'object'){
+      Object.keys(map).forEach(k=>{
+        if(map[k] && map[k].uid) ONLINE_USERS[map[k].uid] = map[k];
+      });
+    }
+  }catch(e){}
+}
+
+function writeSharedPlayer(prof){
+  if(!prof || !prof.uid) return;
+  ONLINE_USERS[prof.uid] = prof;
+  try{
+    if(window.localStorage){
+      const raw = localStorage.getItem(LS_PLAYERS_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      map[prof.uid] = prof;
+      localStorage.setItem(LS_PLAYERS_KEY, JSON.stringify(map));
+    }
+  }catch(e){}
+}
+
+function sendCrossTabSignal(payload){
+  const msg = { ...payload, _ts: Date.now(), _rnd: Math.random() };
+  if(BC) try{ BC.postMessage(msg); }catch(e){}
+  try{
+    if(window.localStorage) localStorage.setItem(LS_SIGNAL_KEY, JSON.stringify(msg));
+  }catch(e){}
+}
+
+function handleRealtimeSignal(msg){
+  if(!msg) return;
+  if(msg.type === 'PLAYER_SYNC' && msg.profile){
+    ONLINE_USERS[msg.profile.uid] = msg.profile;
+    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+  }else if(msg.type === 'PLAYER_OFFLINE' && msg.uid){
+    if(ONLINE_USERS[msg.uid]) ONLINE_USERS[msg.uid].online = false;
+    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+  }else if(msg.type === 'REQUEST_PRESENCE' && S.user && S.w){
+    broadcastPresence();
+  }else if(msg.type === 'DUEL_INVITE' && S.user && msg.inv?.toUid === S.user.uid){
+    if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
+      showIncomingDuelModal(msg.inv);
+    }
+  }else if(msg.type === 'DUEL_RESP' && S.user && msg.fromUid === S.user.uid){
+    if(msg.status === 'accepted' && msg.roomId && (!S.du || S.du.roomId !== msg.roomId)){
+      $('#modal').innerHTML = '';
+      joinLiveRoom(msg.roomId, msg.toName);
+    }else if(msg.status === 'declined'){
+      if($('#modal').innerHTML.includes('Menunggu')){
+        $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${msg.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
+      }
+    }
+  }else if(msg.type === 'ROOM_UPDATE' && S.du && S.du.roomId === msg.roomId && msg.room){
+    applyRoomState(msg.room);
+  }
+}
+
+if(BC) BC.onmessage = (ev) => handleRealtimeSignal(ev.data);
+window.addEventListener('storage', (ev) => {
+  if(ev.key === LS_PLAYERS_KEY){
+    readSharedDirectory();
+    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+  }else if(ev.key === LS_SIGNAL_KEY && ev.newValue){
+    try{ handleRealtimeSignal(JSON.parse(ev.newValue)); }catch(e){}
+  }
+});
+
+async function initCloud(){
+  if(db && auth?.currentUser) return true;
+  try{
+    if(typeof __firebase_config === 'undefined') return false;
+    const cfg = JSON.parse(__firebase_config);
+    const app = initializeApp(cfg);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    if(typeof __initial_auth_token !== 'undefined' && __initial_auth_token){
+      await signInWithCustomToken(auth, __initial_auth_token);
+    }else{
+      await signInAnonymously(auth);
+    }
+    fbUid = auth.currentUser?.uid || null;
+    return !!fbUid;
+  }catch(e){
+    return false;
+  }
+}
+
+function startRealtimeListeners(){
+  if(hbTimer) clearInterval(hbTimer);
+  hbTimer = setInterval(()=>{
+    if(S.user && S.w){
+      broadcastPresence();
+      syncUserCloud();
+    }
+  }, 5000);
+
+  if(!db || !auth?.currentUser) return;
+  if(unsubPlayers) unsubPlayers();
+  unsubPlayers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snap)=>{
+    snap.forEach(d=>{
+      const data = d.data();
+      if(data && data.uid){
+        ONLINE_USERS[data.uid] = data;
+      }
+    });
+    if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
+  }, ()=>{});
+
+  if(unsubInvites) unsubInvites();
+  unsubInvites = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'duel_invites'), (snap)=>{
+    snap.forEach(d=>{
+      const inv = { id: d.id, ...d.data() };
+      if(!S.user) return;
+      if(inv.toUid === S.user.uid && inv.status === 'pending' && (Date.now() - (inv.createdAt || 0)) < 45000){
+        if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
+          showIncomingDuelModal(inv);
+        }
+      }
+      if(inv.fromUid === S.user.uid && inv.status === 'accepted' && inv.roomId){
+        if(!S.du || S.du.roomId !== inv.roomId){
+          $('#modal').innerHTML = '';
+          joinLiveRoom(inv.roomId, inv.toName);
+        }
+      }
+      if(inv.fromUid === S.user.uid && inv.status === 'declined'){
+        if($('#modal').innerHTML.includes('Menunggu')){
+          $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${inv.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
+        }
+        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', inv.id)).catch(()=>{});
+      }
+    });
+  }, ()=>{});
+}
+
 const LV=['Murid Baru','Percikan Semangat','Penantang','Pendekar','Master','Legenda'];
 const LS=[
 {id:'lim',n:'Hutan Limit',c:'LIM-01',t:'Memahami Limit Secara Intuitif',x:'Kabut menipu jalan di sini: tampak berlubang, tapi selalu ada ujung yang bisa didekati.',
@@ -309,72 +461,60 @@ const Q=[
 ['Trigonometri','sin α = 3/5 (lancip), maka cos α = …',['3/4','4/5','5/4','4/3'],1,'Tripel (3, 4, 5): cos α = 4/5.'],
 ['Geometri','Luas segitiga siku-siku dengan sisi penyiku 6 cm dan 8 cm…',['24 cm²','30 cm²','48 cm²','14 cm²'],0,'½ × 6 × 8 = 24.']];
 
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-let db = null, auth = null, fbUid = null, unsubPlayers = null, unsubInvites = null, unsubRoom = null, hbTimer = null;
-const ONLINE_USERS = {};
-const BC = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('rascademy_live_' + appId) : null;
-
-if(BC){
-  BC.onmessage = (ev) => {
-    const msg = ev.data;
-    if(!msg) return;
-    if(msg.type === 'PLAYER_SYNC' && msg.profile){
-      ONLINE_USERS[msg.profile.uid] = msg.profile;
-      if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-    }else if(msg.type === 'PLAYER_OFFLINE' && msg.uid){
-      if(ONLINE_USERS[msg.uid]) ONLINE_USERS[msg.uid].online = false;
-      if(S.user && !S.du && (S.tab==='duel' || S.tab==='profil')) render();
-    }else if(msg.type === 'REQUEST_PRESENCE' && S.user && S.w){
-      broadcastPresence();
-    }else if(msg.type === 'DUEL_INVITE' && S.user && msg.inv?.toUid === S.user.uid){
-      if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
-        showIncomingDuelModal(msg.inv);
-      }
-    }else if(msg.type === 'DUEL_RESP' && S.user && msg.fromUid === S.user.uid){
-      if(msg.status === 'accepted' && msg.roomId && (!S.du || S.du.roomId !== msg.roomId)){
-        $('#modal').innerHTML = '';
-        joinLiveRoom(msg.roomId, msg.toName);
-      }else if(msg.status === 'declined'){
-        if($('#modal').innerHTML.includes('Menunggu')){
-          $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${msg.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
-        }
-      }
-    }else if(msg.type === 'ROOM_UPDATE' && S.du && S.du.roomId === msg.roomId && msg.room){
-      applyRoomState(msg.room);
-    }
-  };
-}
-
-function makeSessionUid(){
-  return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
-}
-
-async function initCloud(){
-  if(db && auth?.currentUser) return true;
-  try{
-    if(typeof __firebase_config === 'undefined') return false;
-    const cfg = JSON.parse(__firebase_config);
-    const app = initializeApp(cfg);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    if(typeof __initial_auth_token !== 'undefined' && __initial_auth_token){
-      await signInWithCustomToken(auth, __initial_auth_token);
-    }else{
-      await signInAnonymously(auth);
-    }
-    fbUid = auth.currentUser?.uid || null;
-    return true;
-  }catch(e){
-    console.error('Cloud init fallback:', e);
-    return false;
-  }
-}
-
 const newWs=p=>({lv:p?1:0,done:p?{lim:{sc:100}}:{},prac:p?[['Aljabar',4,4,100]]:[],duel:[],act:p?[['Belajar: Memahami Limit Secara Intuitif','Kuis 100%','Hari ini']]:[],pair:{on:false,pn:'',streak:0,days:[0,0,0,0,0,0,0],logs:[]},seen:0,found:p?[1,0,0]:[0,0,0],exp:null,px:320,py:900});
-const S={user:null,w:null,tab:'belajar',les:null,step:'wb',wb:0,qa:{},qs:false,pr:null,du:null,viewProf:null};
+const S={user:null,w:null,tab:'belajar',les:null,step:'wb',wb:0,qa:{},qs:false,pr:null,du:null,viewProf:null,searchQ:'',refreshing:false};
 const K={u:0,d:0,l:0,r:0};
-const shuf=a=>a.sort(()=>Math.random()-.5);
+const shuf=a=>a.slice().sort(()=>Math.random()-.5);
 const nowT=()=>new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+
+/* ---------- KELOPAK SAKURA SMOOTH (60FPS CANVAS) ---------- */
+const SK=document.getElementById('sakura-bg');
+const SK_PETALS=Array.from({length:26},()=>({
+  x:Math.random(),y:Math.random(),
+  s:5+Math.random()*6,
+  vy:.0005+Math.random()*.0008,
+  vx:(Math.random()-.3)*.0004,
+  rot:Math.random()*6.28,
+  vrot:(Math.random()-.5)*.03,
+  sway:Math.random()*6.28,
+  col:['#ffb7d5','#ff8fab','#ffd6e7','#ffc2d9'][Math.random()*4|0]
+}));
+let skLast=0;
+function sakuraLoop(tm){
+  const isMap = S.user && S.tab==='belajar' && !S.les;
+  if(SK){
+    SK.style.opacity = isMap ? '0' : '1';
+    if(!isMap){
+      const w=innerWidth,h=innerHeight;
+      if(SK.width!==w||SK.height!==h){SK.width=w;SK.height=h}
+      const g=SK.getContext('2d');
+      g.clearRect(0,0,w,h);
+      const dt=Math.min(40,tm-(skLast||tm));
+      for(let i=0;i<SK_PETALS.length;i++){
+        const p=SK_PETALS[i];
+        p.y+=p.vy*dt;
+        p.x+=p.vx*dt+Math.sin(tm*.0012+p.sway)*.00025*dt;
+        p.rot+=p.vrot*(dt/16);
+        if(p.y>1.04){p.y=-0.04;p.x=Math.random()}
+        if(p.x>1.04)p.x=-0.04;
+        if(p.x<-0.04)p.x=1.04;
+        g.save();
+        g.translate(p.x*w,p.y*h);
+        g.rotate(p.rot);
+        g.fillStyle=p.col;
+        g.beginPath();
+        g.moveTo(0,-p.s);
+        g.bezierCurveTo(p.s*.9,-p.s*.6,p.s*.9,p.s*.6,0,p.s);
+        g.bezierCurveTo(-p.s*.9,p.s*.6,-p.s*.9,-p.s*.6,0,-p.s);
+        g.fill();
+        g.restore();
+      }
+    }
+  }
+  skLast=tm;
+  requestAnimationFrame(sakuraLoop);
+}
+requestAnimationFrame(sakuraLoop);
 
 /* ---------- DUNIA RPG (PIKSEL) ---------- */
 const WW=640,WH=960,INK='#1c2b1f';
@@ -430,7 +570,7 @@ for(let i=0;i<30;i++)FIRE.push({x:rnd()*WW,y:rnd()*WH,p:rnd()*6});
 for(let i=0;i<120;i++)SNOW.push({x:Math.random(),y:Math.random(),v:.05+Math.random()*.08,r:Math.random()*6});
 const DLG_INTRO=['Hai, kamu mau belajar ya? Lewat berpetualang di hutan ini!','Gerbang-gerbang di hutan ini tersembunyi. Jalan bercabang, ada yang buntu, dan kabut bisa datang tiba-tiba.','Kabarnya gerbang pertama ada di ujung jalan kecil yang bercabang ke barat, tak jauh dari awal. Gerakkan joystick, tekan A untuk berinteraksi.'];
 const dc=()=>{const i=LS.findIndex(l=>!(S.w.done[l.id]));return i<0?3:i};
-const stats=(wObj=S.w)=>{const w=wObj||newWs(0),d=LS.filter(l=>w.done?.[l.id]).length,pc=(w.prac||[]).length,dw=(w.duel||[]).filter(x=>x.o==='Menang').length;return{d,pc,dw,dn:(w.duel||[]).length,lv:w.lv||0,pct:Math.min(100,d*25+Math.min(2,pc)*10+Math.min(1,dw)*15),qs:(w.prac||[]).reduce((a,x)=>a+x[1],0),acc:pc?Math.round((w.prac||[]).reduce((a,x)=>a+x[3],0)/pc):0}};
+const stats=(wObj)=>{const w=wObj||S.w;if(!w)return{d:0,pc:0,dw:0,dn:0,lv:0,pct:0,qs:0,acc:0};const d=LS.filter(l=>w.done&&w.done[l.id]).length,pc=(w.prac||[]).length,dw=(w.duel||[]).filter(x=>x.o==='Menang').length;return{d,pc,dw,dn:(w.duel||[]).length,lv:w.lv||0,pct:Math.min(100,d*25+Math.min(2,pc)*10+Math.min(1,(w.duel||[]).length)*15),qs:(w.prac||[]).reduce((a,x)=>a+x[1],0),acc:pc?Math.round((w.prac||[]).reduce((a,x)=>a+x[3],0)/pc):0}};
 function act(t,d){S.w.act.unshift([t,d,nowT()]);S.w.act.length=Math.min(S.w.act.length,20);syncUserCloud()}
 function plog(t){if(S.w.pair.on){S.w.pair.logs.unshift(t);S.w.pair.logs.length=Math.min(S.w.pair.logs.length,6)}}
 function ign(){S.w.lv=Math.min(5,S.w.lv+1);const p=S.w.pair,i=p.days.indexOf(0);if(i>-1)p.days[i]=1;p.streak++;syncUserCloud()}
@@ -453,207 +593,89 @@ function buildPublicProfile(){
     dn: st.dn,
     pct: st.pct,
     act: S.w.act.slice(0, 5),
+    savedState: { ...S.w, exp: null },
     lastSeen: Date.now(),
     online: true
   };
 }
 
+function saveSessionState(userObj){
+  try{
+    const val = JSON.stringify(userObj);
+    if(window.sessionStorage) sessionStorage.setItem(SS_USER_KEY, val);
+    document.cookie = `rascademy_session=${encodeURIComponent(val)}; path=/; max-age=2592000; SameSite=Lax`;
+    window.name = 'RASCADEMY_USER:' + val;
+  }catch(e){}
+}
+
+function loadSessionState(){
+  try{
+    if(window.sessionStorage){
+      const ss = sessionStorage.getItem(SS_USER_KEY);
+      if(ss) return JSON.parse(ss);
+    }
+    if(window.name && window.name.startsWith('RASCADEMY_USER:')){
+      return JSON.parse(window.name.slice('RASCADEMY_USER:'.length));
+    }
+    const m = document.cookie.match(/(?:^|;\s*)rascademy_session=([^;]+)/);
+    if(m) return JSON.parse(decodeURIComponent(m[1]));
+  }catch(e){}
+  return null;
+}
+
+function clearSessionState(){
+  try{
+    if(window.sessionStorage) sessionStorage.removeItem(SS_USER_KEY);
+    document.cookie = 'rascademy_session=; path=/; max-age=0';
+    if(window.name && window.name.startsWith('RASCADEMY_USER:')) window.name = '';
+  }catch(e){}
+}
+
 function broadcastPresence(){
   if(!S.user || !S.w) return;
   const prof = buildPublicProfile();
-  ONLINE_USERS[prof.uid] = prof;
-  if(BC) BC.postMessage({ type: 'PLAYER_SYNC', profile: prof });
+  writeSharedPlayer(prof);
+  sendCrossTabSignal({ type: 'PLAYER_SYNC', profile: prof });
 }
 
 async function syncUserCloud(){
   if(!S.user || !S.w) return;
   const publicProfile = buildPublicProfile();
-  ONLINE_USERS[publicProfile.uid] = publicProfile;
-  if(BC) BC.postMessage({ type: 'PLAYER_SYNC', profile: publicProfile });
+  writeSharedPlayer(publicProfile);
+  saveSessionState(S.user);
+  sendCrossTabSignal({ type: 'PLAYER_SYNC', profile: publicProfile });
   if(!db || !auth?.currentUser) return;
   try{
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), publicProfile, { merge: true });
     if(fbUid){
       const privateSave = { ...S.w, exp: null };
-      await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), privateSave, { merge: true });
+      await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), { activeUser: S.user, state: privateSave }, { merge: true });
     }
   }catch(e){}
 }
 
-let syncTimer = null;
-function scheduleSync(){
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncUserCloud, 1200);
-}
-
-/* ---------- EFEK GUGURAN BUNGA SAKURA (60FPS HARDWARE ACCELERATED) ---------- */
-const SAKURA_CV = document.getElementById('sakura-bg');
-const SAKURA_CTX = SAKURA_CV.getContext('2d');
-const PETALS = Array.from({length: 28}, () => ({
-  x: Math.random() * innerWidth,
-  y: Math.random() * innerHeight,
-  s: 5 + Math.random() * 6,
-  vy: 0.55 + Math.random() * 0.9,
-  vx: -0.4 + Math.random() * 0.8,
-  rot: Math.random() * Math.PI * 2,
-  vrot: (Math.random() - 0.5) * 0.04,
-  sway: Math.random() * Math.PI * 2,
-  col: ['#ffc2d9', '#ff9ec4', '#ffe0ec', '#ffb3d1'][Math.floor(Math.random() * 4)]
-}));
-function resizeSakura(){
-  SAKURA_CV.width = innerWidth;
-  SAKURA_CV.height = innerHeight;
-}
-window.addEventListener('resize', resizeSakura, {passive: true});
-resizeSakura();
-
-let sakuraRaf = 0;
-function loopSakura(){
-  const onRpgMap = S.user && S.tab === 'belajar' && !S.les;
-  SAKURA_CV.style.opacity = onRpgMap ? '0' : '1';
-  if(!onRpgMap && !document.hidden){
-    const W = SAKURA_CV.width, H = SAKURA_CV.height;
-    SAKURA_CTX.clearRect(0, 0, W, H);
-    for(let i = 0; i < PETALS.length; i++){
-      const p = PETALS[i];
-      p.sway += 0.025;
-      p.x += p.vx + Math.sin(p.sway) * 0.45;
-      p.y += p.vy;
-      p.rot += p.vrot;
-      if(p.y > H + 15){ p.y = -15; p.x = Math.random() * W; }
-      if(p.x > W + 15) p.x = -15;
-      if(p.x < -15) p.x = W + 15;
-      SAKURA_CTX.save();
-      SAKURA_CTX.translate(p.x, p.y);
-      SAKURA_CTX.rotate(p.rot);
-      SAKURA_CTX.fillStyle = p.col;
-      SAKURA_CTX.beginPath();
-      SAKURA_CTX.moveTo(0, -p.s);
-      SAKURA_CTX.bezierCurveTo(p.s, -p.s, p.s, p.s * 0.6, 0, p.s);
-      SAKURA_CTX.bezierCurveTo(-p.s, p.s * 0.6, -p.s, -p.s, 0, -p.s);
-      SAKURA_CTX.fill();
-      SAKURA_CTX.restore();
-    }
-  }
-  sakuraRaf = requestAnimationFrame(loopSakura);
-}
-loopSakura();
-
-function startRealtimeListeners(){
-  if(!S.user) return;
-  if(unsubPlayers) unsubPlayers();
-  if(unsubInvites) unsubInvites();
-  if(hbTimer) clearInterval(hbTimer);
-
-  if(BC) BC.postMessage({ type: 'REQUEST_PRESENCE' });
-
-  // Heartbeat setiap 10 detik agar status online real-time selalu segar
-  hbTimer = setInterval(()=>{
-    if(!S.user) return;
-    broadcastPresence();
-    if(db && auth?.currentUser){
-      setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), buildPublicProfile(), { merge: true }).catch(()=>{});
-    }
-  }, 10000);
-
-  if(!db || !auth?.currentUser) return;
-
-  // Dengarkan semua pemain real yang login
-  unsubPlayers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snap)=>{
-    snap.forEach(d=>{
-      const data = d.data();
-      if(data && data.uid){
-        ONLINE_USERS[data.uid] = data;
-      }
-    });
-    if(!S.du && (S.tab==='duel' || S.tab==='profil' || S.viewProf)) render();
-  }, (err)=>console.error(err));
-
-  // Dengarkan tantangan duel masuk (real-time invite)
-  unsubInvites = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'duel_invites'), (snap)=>{
-    snap.forEach(d=>{
-      const inv = { id: d.id, ...d.data() };
-      if(inv.toUid === S.user.uid && inv.status === 'pending' && Date.now() - (inv.createdAt||0) < 60000){
-        if(!S.du && !$('#modal').innerHTML.includes('TANTANGAN DUEL MASUK')){
-          showIncomingDuelModal(inv);
-        }
-      }
-      if(inv.fromUid === S.user.uid && inv.status === 'accepted' && inv.roomId && (!S.du || S.du.roomId !== inv.roomId)){
-        $('#modal').innerHTML = '';
-        joinLiveRoom(inv.roomId, inv.toName);
-      }
-      if(inv.fromUid === S.user.uid && inv.status === 'declined'){
-        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', inv.id)).catch(()=>{});
-        if($('#modal').innerHTML.includes('Menunggu')){
-          $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' style='text-align:center'><div class='tag'>DITOLAK</div><p style='margin:8px 0'><b>${inv.toName}</b> sedang sibuk atau menolak tantangan.</p><button class='btn w' onclick='cm()'>Tutup</button></section></div>`;
-        }
-      }
-    });
-  }, (err)=>console.error(err));
-}
-
-function showIncomingDuelModal(inv){
-  $('#modal').innerHTML = `<div class='ov'><section class='pn scroll' style='text-align:center'>
-    <div class='tag'>TANTANGAN DUEL MASUK!</div>
-    <h2 class='ttl' style='font-size:1.15rem;margin:8px 0'>${inv.fromName}</h2>
-    <p style='font-weight:700'>Mengajakmu bertanding Cerdas Cermat 1v1 secara langsung!</p>
-    <div class='g2' style='margin-top:12px'>
-      <button class='btn gh' onclick='respondInvite("${inv.id}", false)'>Tolak ✕</button>
-      <button class='btn yl' onclick='respondInvite("${inv.id}", true)'>Terima ▶</button>
-    </div>
-  </section></div>`;
-}
-
-const LOCAL_INVITES = {};
-const LOCAL_ROOMS = {};
-
-async function respondInvite(invId, accept){
-  const localInv = LOCAL_INVITES[invId];
-  if(!accept){
-    if(localInv && BC){
-      BC.postMessage({ type: 'DUEL_RESP', invId, fromUid: localInv.fromUid, toName: S.user.name, status: 'declined' });
-    }
-    if(db && auth?.currentUser){
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), { status: 'declined' }).catch(()=>{});
-    }
-    cm();
-    return;
-  }
-
-  let inv = localInv;
-  if(!inv && db && auth?.currentUser){
-    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>null);
-    if(snap && snap.exists()) inv = snap.data();
-  }
-  if(!inv){ cm(); return; }
-
-  const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  const qs = shuf(Q.slice()).slice(0,4).map(q=>({ cat:q[0], q:q[1], opts:q[2], ans:q[3], exp:q[4] }));
-  const roomData = {
-    p1: { uid: inv.fromUid, name: inv.fromName, score: 0 },
-    p2: { uid: S.user.uid, name: S.user.name, score: 0 },
-    qs,
-    i: 0,
-    ph: 'buzz',
-    holder: null,
-    el: null,
-    ch: null,
-    msg: 'Juri membacakan soal! Tekan BEL merah!',
-    roundEndsAt: Date.now() + 12000,
-    done: false,
-    updatedAt: Date.now()
-  };
-  LOCAL_ROOMS[roomId] = roomData;
-  if(BC){
-    BC.postMessage({ type: 'ROOM_UPDATE', roomId, room: roomData });
-    BC.postMessage({ type: 'DUEL_RESP', invId, fromUid: inv.fromUid, toName: S.user.name, status: 'accepted', roomId });
-  }
+async function refreshPlayersNow(){
+  S.refreshing = true;
+  render();
+  readSharedDirectory();
+  broadcastPresence();
+  sendCrossTabSignal({ type: 'REQUEST_PRESENCE' });
   if(db && auth?.currentUser){
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), roomData).catch(()=>{});
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), { status: 'accepted', roomId }).catch(()=>{});
+    try{
+      const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players'));
+      snap.forEach(d=>{
+        const data = d.data();
+        if(data && data.uid){
+          ONLINE_USERS[data.uid] = data;
+          writeSharedPlayer(data);
+        }
+      });
+    }catch(e){}
   }
-  cm();
-  joinLiveRoom(roomId, inv.fromName);
+  setTimeout(()=>{
+    S.refreshing = false;
+    if(S.user && !S.du) render();
+  }, 300);
 }
 
 /* ---------- PETA RPG (CANVAS PIKSEL) ---------- */
@@ -714,70 +736,108 @@ function advIntro(){if(TYPING){clearInterval(TYPE);TYPING=false;const w=$('#win'
 let TYPE=0;
 function typeIntro(){clearInterval(TYPE);const w=$('#win');if(!w)return;const t=DLG_INTRO[INTI];let i=0;w.dataset.k='intro'+INTI;TYPING=true;TYPE=setInterval(()=>{i++;w.innerHTML='<b>Hutan</b><br>'+t.slice(0,i)+(i<t.length?'':' ▶');if(i>=t.length){clearInterval(TYPE);TYPING=false}},22)}
 
-/* ---------- LAYAR ---------- */
-function setTop(){if(!S.user){$('#top').innerHTML='';return}$('#top').innerHTML=`<div class='row'><div class='kj'>極</div><div><div class='ttl' style='font-size:1rem'>Rascademy</div><div class='mut'>${S.user.name} <span style='font-size:.68rem;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:6px'>GUEST LIVE</span></div></div></div><div class='tag' style='margin:0'>Aura Lv.${S.w.lv}</div>`}
+/* ---------- LAYAR LOGIN REAL (GUEST + NAMA) ---------- */
+function setTop(){if(!S.user){$('#top').innerHTML='';return}$('#top').innerHTML=`<div class='row'><div class='kj'>極</div><div><div class='ttl' style='font-size:1rem'>Rascademy</div><div class='mut'>${S.user.name}</div></div></div><div class='tag' style='margin:0'>Aura Lv.${S.w.lv}</div>`}
 function renderAuth(){
   $('#top').innerHTML=`<div class='row'><div class='kj'>極</div><div class='ttl' style='font-size:1.1rem'>Rascademy</div></div>`;
   $('#nav').innerHTML='';
   $('#main').innerHTML=`
   <section class='pn hero' style='padding:20px 16px'>
-    <div class='tag'>BELAJAR KONSEP • MULTIPLAYER</div>
-    <h1 class='ttl' style='font-size:1.5rem'>Pahami Konsepnya,<br>Kuasai Matematikanya!</h1>
-    <p style='margin-top:8px;font-weight:700'>Masuk sebagai Guest dengan namamu sendiri, lihat profil pemain lain yang sedang online, dan duel Cerdas Cermat secara real-time!</p>
+    <div class='tag'>MULTIPLAYER REAL-TIME</div>
+    <h1 class='ttl' style='font-size:1.45rem'>Pahami Konsepnya,<br>Tantang Pemain Lain!</h1>
+    <p style='margin-top:8px;font-weight:700'>Masuk sebagai Guest dengan namamu sendiri, lihat profil pemain lain secara real-time, dan adu cepat di Studio Cerdas Cermat!</p>
   </section>
   <section class='pn'>
-    <h2 class='ttl' style='font-size:1rem;margin-bottom:8px'>Masuk sebagai Guest</h2>
-    <label class='mut' style='font-weight:800;display:block'>Nama Tampilanmu</label>
-    <input id='gName' class='inp' type='text' maxlength='22' placeholder='Contoh: Budi Santoso / Siti...' />
+    <h2 class='ttl' style='font-size:1rem;margin-bottom:8px'>Masuk sebagai Guest + Nama</h2>
+    <label style='font-size:.78rem;font-weight:800'>Nama Tampilanmu</label>
+    <input id='gName' class='inp' type='text' maxlength='24' placeholder='Contoh: Raka, Alya, Hafi...' onkeydown='if(event.key==="Enter")loginGuest()' />
     <div class='g2' style='margin-top:10px'>
       <div>
-        <label class='mut' style='font-weight:800;display:block'>Gender</label>
-        <select id='gGen' class='inp'>
+        <label style='font-size:.75rem;font-weight:800'>Gender</label>
+        <select id='gGen' class='inp' style='padding:8px 10px'>
           <option value='Laki-laki'>Laki-laki</option>
           <option value='Perempuan'>Perempuan</option>
         </select>
       </div>
       <div>
-        <label class='mut' style='font-weight:800;display:block'>Kelas</label>
-        <select id='gGrade' class='inp'>
+        <label style='font-size:.75rem;font-weight:800'>Jenjang</label>
+        <select id='gGrade' class='inp' style='padding:8px 10px'>
           <option value='Kelas X SMA'>Kelas X SMA</option>
           <option value='Kelas XI SMA'>Kelas XI SMA</option>
           <option value='Kelas XII SMA' selected>Kelas XII SMA</option>
-          <option value='Umum / Mahasiswa'>Umum</option>
+          <option value='Umum / Mahasiswa'>Umum / Mahasiswa</option>
         </select>
       </div>
     </div>
-    <button id='btnLoginGuest' class='btn w' style='margin-top:14px' onclick='loginGuest()'>Masuk Arena Real-Time ▶</button>
-    <div id='authMsg' class='mut' style='text-align:center;margin-top:8px;color:#be123c;font-weight:700'></div>
+    <div id='authMsg' class='mut' style='color:#c2185b;margin-top:8px;font-weight:800'></div>
+    <button id='btnLoginGuest' class='btn w' style='margin-top:12px' onclick='loginGuest()'>Masuk & Mulai Petualangan ▶</button>
   </section>`;
 }
-async function loginGuest(){
-  const inp = $('#gName');
-  const rawName = (inp?.value || '').trim();
-  if(rawName.length < 2){
-    if($('#authMsg')) $('#authMsg').textContent = 'Masukkan namamu minimal 2 huruf ya!';
-    return;
+
+async function loginGuest(autoUser=null){
+  let rawName = '', gen = 'Laki-laki', gr = 'Kelas XII SMA';
+  if(autoUser){
+    rawName = autoUser.name;
+    gen = autoUser.g || 'Laki-laki';
+    gr = autoUser.gr || 'Kelas XII SMA';
+  }else{
+    const inp = $('#gName');
+    rawName = (inp?.value || '').trim();
+    if(rawName.length < 2){
+      if($('#authMsg')) $('#authMsg').textContent = 'Masukkan namamu minimal 2 huruf ya!';
+      return;
+    }
+    const btn = $('#btnLoginGuest');
+    if(btn){ btn.disabled = true; btn.textContent = 'Menghubungkan...'; }
+    gen = $('#gGen')?.value || 'Laki-laki';
+    gr = $('#gGrade')?.value || 'Kelas XII SMA';
   }
-  const btn = $('#btnLoginGuest');
-  if(btn){ btn.disabled = true; btn.textContent = 'Menghubungkan ke Server...'; }
-  const gen = $('#gGen')?.value || 'Laki-laki';
-  const gr = $('#gGrade')?.value || 'Kelas XII SMA';
+
+  readSharedDirectory();
   await initCloud();
-  const uid = makeSessionUid();
+  const uid = nameToKey(rawName);
   S.user = { uid, name: rawName, g: gen, gr, isGuest: true };
-  S.w = newWs(0);
+  saveSessionState(S.user);
+
+  let loadedState = null;
+  if(db && auth?.currentUser){
+    try{
+      const existingSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', uid));
+      if(existingSnap.exists() && existingSnap.data()?.savedState){
+        loadedState = existingSnap.data().savedState;
+      }
+    }catch(e){}
+  }
+  if(!loadedState && ONLINE_USERS[uid]?.savedState){
+    loadedState = ONLINE_USERS[uid].savedState;
+  }
+
+  S.w = loadedState ? { ...newWs(0), ...loadedState, exp: null } : newWs(0);
   P.x = S.w.px || 320; P.y = S.w.py || 900; camX = P.x; camY = P.y;
   S.tab = 'belajar'; S.les = null; S.pr = null; S.du = null;
   INTRO = S.w.seen ? null : 0; INTI = 0;
+
   await syncUserCloud();
   startRealtimeListeners();
+  await refreshPlayersNow();
   render();
 }
+
+async function restoreSessionOnLoad(){
+  readSharedDirectory();
+  const saved = loadSessionState();
+  if(saved && saved.name){
+    await loginGuest(saved);
+    return;
+  }
+  render();
+}
+
 function render(){clearInterval(TYPE);cancelAnimationFrame(MR);if(!S.user){renderAuth();return}setTop();
  $('#nav').innerHTML=[['belajar','旅','Petualang'],['duel','闘','Cerdas Cermat'],['latsol','練','Latsol'],['pair','絆','Pair'],['profil','我','Profil']].map(t=>`<button class='${S.tab===t[0]?'on':''}' onclick='go("${t[0]}")'><span class='k'>${t[1]}</span>${t[2]}</button>`).join('');
  document.body.style.overflow=S.user&&S.tab==='belajar'&&!S.les?'hidden':'';
  ({belajar:tabBelajar,duel:tabDuel,latsol:tabLatsol,pair:tabPair,profil:tabProfil})[S.tab]()}
-function go(t){if(S.du)exitDuel();S.tab=t;S.les=null;S.pr=null;S.viewProf=null;render();window.scrollTo(0,0)}
+function go(t){if(S.du)exitDuel();S.tab=t;S.les=null;S.pr=null;render();window.scrollTo(0,0)}
 
 /* ---------- BELAJAR ---------- */
 function tabBelajar(){
@@ -797,13 +857,11 @@ function openL(id){S.les=id;S.step='wb';S.wb=0;render();window.scrollTo(0,0)}
 function stp(x){S.step=x;if(x==='qz'){S.qa={};S.qs=false}render()}
 function renderLesson(){
  const l=LS.find(x=>x.id===S.les),st=S.step;let b='';
- if(st==='wb'){const f=l.st[S.wb];b=`<section class='pn'><div class='row bt'><span class='tag'>${f[0]}</span><span class='mut'>${S.wb+1}/${l.st.length}</span></div><div class='fm'>${f[1]}</div><p>${f[2]}</p><div class='row bt' style='margin-top:12px'><button class='btn gh sm' ${S.wb?'':'disabled'} onclick='wbPrev()'>◀ Balik</button>${S.wb<l.st.length-1?"<button class='btn sm' onclick='wbNext()'>Panel Berikut ▶</button>":"<button class='btn yl sm' onclick='stp(\"sum\")'>Ringkasan ▶</button>"}</div></section>`}
+ if(st==='wb'){const f=l.st[S.wb];b=`<section class='pn'><div class='row bt'><span class='tag'>${f[0]}</span><span class='mut'>${S.wb+1}/${l.st.length}</span></div><div class='fm'>${f[1]}</div><p>${f[2]}</p><div class='row bt' style='margin-top:12px'><button class='btn gh sm' ${S.wb?'':'disabled'} onclick='S.wb--;render()'>◀ Balik</button>${S.wb<l.st.length-1?"<button class='btn sm' onclick='S.wb++;render()'>Panel Berikut ▶</button>":"<button class='btn yl sm' onclick='stp(\"sum\")'>Ringkasan ▶</button>"}</div></section>`}
  if(st==='sum')b=`<section class='pn'><span class='tag'>INTI KONSEP</span><p style='font-weight:700'>${l.core}</p></section><section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Poin Kunci</h2>${l.pts.map((p,i)=>`<div class='it'><b>${i+1}.</b> ${p}</div>`).join('')}<button class='btn w' style='margin-top:12px' onclick='stp("ex")'>Contoh Soal ▶</button></section>`;
  if(st==='ex')b=`<section class='pn'><span class='tag'>LATIHAN BIMBINGAN</span><p style='font-weight:700'>${l.ex.q}</p></section>${l.ex.s.map(s=>`<section class='pn'><b>${s[0]}</b><div class='fm'>${s[1]}</div><p class='mut'>${s[2]}</p></section>`).join('')}<section class='pn'><span class='tag'>KESIMPULAN</span><p>${l.ex.c}</p><button class='btn w' style='margin-top:12px' onclick='stp("qz")'>Kuis Checkpoint ▶</button></section>`;
  if(st==='qz'){const done=S.qs;b=l.qz.map((q,qi)=>`<section class='pn'><span class='mut'>Soal ${qi+1}/${l.qz.length}</span><p style='font-weight:800'>${q[0]}</p>${q[1].map((o,i)=>`<button class='opt ${done?(i===q[2]?'ok':(S.qa[qi]===i?'no':'')):(S.qa[qi]===i?'on':'')}' ${done?'disabled':''} onclick='selQ(${qi},${i})'><b>${'ABCD'[i]}</b><span>${o}</span></button>`).join('')}${done?`<div class='it'>💡 ${q[3]}</div>`:''}</section>`).join('')+(done?`<section class='pn scroll'><span class='tag'>SECARIK PETA</span><p>${l.clue}</p></section><button class='btn w' onclick='leaveL()'>Kembali ke Peta ▶</button>`:`<button class='btn w' ${l.qz.every((q,i)=>S.qa[i]!==undefined)?'':'disabled'} onclick='subQ()'>Kirim Jawaban ▶</button>`)}
  $('#main').innerHTML=`<div class='row bt' style='margin-bottom:10px'><button class='btn gh sm' onclick='leaveL()'>◀ Peta</button><span class='tag' style='margin:0'>${l.c}</span></div><h1 class='ttl' style='font-size:1.1rem;margin-bottom:8px'>${l.t}</h1><div class='tabs'>${[['wb','Materi'],['sum','Ringkas'],['ex','Contoh'],['qz','Kuis']].map(t=>`<button class='${st===t[0]?'on':''}' onclick='stp("${t[0]}")'>${t[1]}</button>`).join('')}</div>${b}`}
-function wbPrev(){if(S.wb>0){S.wb--;render()}}
-function wbNext(){const l=LS.find(x=>x.id===S.les);if(l&&S.wb<l.st.length-1){S.wb++;render()}}
 function leaveL(){S.les=null;render()}
 function selQ(q,i){if(S.qs)return;S.qa[q]=i;render()}
 function subQ(){const l=LS.find(x=>x.id===S.les),ok=l.qz.filter((q,i)=>S.qa[i]===q[2]).length,sc=Math.round(ok/l.qz.length*100),was=!!S.w.done[l.id];S.qs=true;if(sc>=50&&!was){S.w.done[l.id]={sc};act('Belajar: '+l.t,'Kuis '+sc+'%');plog(S.user.name+' menyelesaikan bab “'+l.t+'”');ign();S.w.map=1;render();cele('Bab Tuntas!','“'+l.t+'” selesai dengan skor '+sc+'%. Secarik peta baru didapat!')}else{render()}}
@@ -816,53 +874,69 @@ function tabLatsol(){
  $('#main').innerHTML=`<section class='pn hero'><div class='row bt'><div><div class='tag'>TRAINING ARC</div><h1 class='ttl' style='font-size:1.3rem'>Latsol Matematika</h1></div><button class='btn yl' onclick='startP("all")'>Mulai ▶</button></div></section><div class='g4' style='grid-template-columns:repeat(3,1fr);margin-bottom:16px'>${[[s.qs,'Total Soal'],[s.acc+'%','Rata-rata'],['Lv.'+s.lv,'Aura']].map(x=>`<div class='st'><strong>${x[0]}</strong><span class='mut'>${x[1]}</span></div>`).join('')}</div><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Pilih Jurus</h2><div class='g2'>${[...new Set(Q.map(q=>q[0]))].map(t=>`<button class='opt' style='margin:0' onclick='startP("${t}")'><span>${t}</span></button>`).join('')}</div>`}
 function startP(t){let p=Q.filter(q=>t==='all'||q[0]===t);p=p.length<3?[...p,...shuf(Q.filter(q=>!p.includes(q)))].slice(0,3):shuf(p).slice(0,4);S.pr={t:t==='all'?'Campuran':t,qs:p,a:[],done:false};render();window.scrollTo(0,0)}
 function selP(q,i){S.pr.a[q]=i;render()}
-function cancelP(){S.pr=null;render()}
-function prSes(){const p=S.pr;$('#main').innerHTML=`<div class='row bt' style='margin-bottom:10px'><button class='btn gh sm' onclick='cancelP()'>◀ Batal</button><span class='tag' style='margin:0'>${p.t} • ${p.qs.length} soal</span></div>${p.qs.map((q,i)=>`<section class='pn'><span class='mut'>Soal ${i+1}/${p.qs.length}</span><p style='font-weight:800'>${q[1]}</p>${q[2].map((o,j)=>`<button class='opt ${p.a[i]===j?'on':''}' onclick='selP(${i},${j})'><b>${'ABCD'[j]}</b><span>${o}</span></button>`).join('')}</section>`).join('')}<button class='btn w' ${p.qs.every((q,i)=>p.a[i]!==undefined)?'':'disabled'} onclick='subP()'>Selesai & Lihat Pembahasan ▶</button>`}
+function prSes(){const p=S.pr;$('#main').innerHTML=`<div class='row bt' style='margin-bottom:10px'><button class='btn gh sm' onclick='S.pr=null;render()'>◀ Batal</button><span class='tag' style='margin:0'>${p.t} • ${p.qs.length} soal</span></div>${p.qs.map((q,i)=>`<section class='pn'><span class='mut'>Soal ${i+1}/${p.qs.length}</span><p style='font-weight:800'>${q[1]}</p>${q[2].map((o,j)=>`<button class='opt ${p.a[i]===j?'on':''}' onclick='selP(${i},${j})'><b>${'ABCD'[j]}</b><span>${o}</span></button>`).join('')}</section>`).join('')}<button class='btn w' ${p.qs.every((q,i)=>p.a[i]!==undefined)?'':'disabled'} onclick='subP()'>Selesai & Lihat Pembahasan ▶</button>`}
 function subP(){const p=S.pr,ok=p.qs.filter((q,i)=>p.a[i]===q[3]).length,sc=Math.round(ok/p.qs.length*100);p.done=true;p.ok=ok;p.sc=sc;S.w.prac.unshift([p.t,p.qs.length,ok,sc]);act('Latsol '+p.t,'Skor '+sc+'% ('+ok+'/'+p.qs.length+')');plog(S.user.name+' menyelesaikan Latsol '+p.t+' ('+sc+'%)');ign();render();cele('Misi Latsol Selesai!','Topik '+p.t+' tuntas dengan akurasi '+sc+'%.')}
-function prRes(){const p=S.pr;$('#main').innerHTML=`<section class='pn hero' style='text-align:center'><div class='tag'>HASIL LATIHAN</div><div class='ttl' style='font-size:2.4rem'>${p.sc}%</div><b>${p.ok} dari ${p.qs.length} soal benar</b></section>${p.qs.map((q,i)=>`<section class='pn'><span class='mut'>Pembahasan ${i+1}</span><p style='font-weight:800'>${q[1]}</p>${q[2].map((o,j)=>`<div class='opt ${j===q[3]?'ok':(p.a[i]===j?'no':'')}' style='cursor:default'><b>${'ABCD'[j]}</b><span>${o}</span></div>`).join('')}<div class='it'>💡 ${q[4]}</div></section>`).join('')}<button class='btn w' onclick='cancelP()'>Kembali ke Daftar Jurus ▶</button>`}
-/* ---------- DUEL (STUDIO CERDAS CERMAT REAL-TIME & BOT) ---------- */
-const fmtSec=s=>'00:'+String(Math.max(0,s)).padStart(2,'0');
-const getActivePlayers=()=>Object.values(ONLINE_USERS).filter(p=>p && p.uid!==S.user.uid && p.online && (Date.now()-(p.lastSeen||0))<60000);
+function prRes(){const p=S.pr;$('#main').innerHTML=`<section class='pn hero' style='text-align:center'><div class='tag'>HASIL LATIHAN</div><div class='ttl' style='font-size:2.4rem'>${p.sc}%</div><b>${p.ok} dari ${p.qs.length} soal benar</b></section>${p.qs.map((q,i)=>`<section class='pn'><span class='mut'>Pembahasan ${i+1}</span><p style='font-weight:800'>${q[1]}</p>${q[2].map((o,j)=>`<div class='opt ${j===q[3]?'ok':(p.a[i]===j?'no':'')}' style='cursor:default'><b>${'ABCD'[j]}</b><span>${o}</span></div>`).join('')}<div class='it'>💡 ${q[4]}</div></section>`).join('')}<button class='btn w' onclick='S.pr=null;render()'>Kembali ke Daftar Jurus ▶</button>`}
 
+/* ---------- PROFIL PUBLIK PEMAIN REAL ---------- */
 function openPlayerProfile(uid){
+  readSharedDirectory();
   const p = ONLINE_USERS[uid];
   if(!p) return;
-  const isOn = p.online && (Date.now()-(p.lastSeen||0))<60000;
-  $('#modal').innerHTML = `<div class='ov' onclick='cm()'><section class='pn' onclick='event.stopPropagation()'>
-    <div class='row bt'>
-      <span class='tag' style='margin:0'>PROFIL PEMAIN REAL</span>
-      <span class='mut' style='font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${isOn?'Online':'Offline'}</span>
-    </div>
-    <div class='row' style='margin:12px 0'>
-      <div class='kj' style='width:54px;height:54px;font-size:1.3rem'>${(p.name||'G')[0].toUpperCase()}</div>
-      <div>
-        <h2 class='ttl' style='font-size:1.05rem'>${p.name}</h2>
-        <div style='font-weight:700;font-size:.82rem'>${p.gr||'Pelajar'} • ${p.g||'-'}</div>
-        <div class='tag' style='margin-top:4px'>Aura Lv.${p.lv||0} • ${LV[p.lv||0]}</div>
+  const isOn = p.online && (Date.now() - (p.lastSeen || 0)) < 90000;
+  $('#modal').innerHTML = `
+  <div class='ov' onclick='cm()'>
+    <section class='pn' onclick='event.stopPropagation()'>
+      <div class='row bt' style='margin-bottom:8px'>
+        <span class='tag' style='margin:0'>PROFIL PEMAIN</span>
+        <span style='font-size:.75rem;font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${isOn?'Online':'Offline'}</span>
       </div>
-    </div>
-    <div class='g4' style='margin-bottom:12px'>
-      <div class='st'><strong>${p.d||0}</strong><span class='mut'>Materi</span></div>
-      <div class='st'><strong>${p.pc||0}</strong><span class='mut'>Latsol</span></div>
-      <div class='st'><strong>${p.dw||0}</strong><span class='mut'>Menang</span></div>
-      <div class='st'><strong>${p.pct||0}%</strong><span class='mut'>Progres</span></div>
-    </div>
-    <div class='it' style='margin-bottom:12px'>
-      <b>Aktivitas Terakhir</b>
-      ${(p.act&&p.act.length)?p.act.map(a=>`<div class='mut' style='margin-top:4px'>• ${a[0]} (${a[1]})</div>`).join(''):"<div class='mut'>Baru bergabung di arena.</div>"}
-    </div>
-    <div class='g2'>
-      <button class='btn gh' onclick='cm()'>Tutup</button>
-      <button class='btn yl' ${isOn?'':'disabled'} onclick='challengePlayer("${p.uid}")'>Tantang Duel ▶</button>
-    </div>
-  </section></div>`;
+      <div class='row' style='margin:10px 0'>
+        <div class='kj' style='width:54px;height:54px;font-size:1.3rem'>${(p.name||'G')[0].toUpperCase()}</div>
+        <div>
+          <h2 class='ttl' style='font-size:1.05rem'>${p.name}</h2>
+          <div style='font-weight:700;font-size:.82rem'>${p.gr||'Pelajar'} • ${p.g||'-'}</div>
+          <div class='tag' style='margin-top:4px'>Aura Lv.${p.lv||0} • ${LV[p.lv||0]}</div>
+        </div>
+      </div>
+      <div class='g4' style='margin:10px 0'>
+        <div class='st'><strong>${p.d||0}/3</strong><span class='mut'>Peta</span></div>
+        <div class='st'><strong>${p.pc||0}</strong><span class='mut'>Latsol</span></div>
+        <div class='st'><strong>${p.dw||0}</strong><span class='mut'>Menang</span></div>
+        <div class='st'><strong>${p.pct||0}%</strong><span class='mut'>Progres</span></div>
+      </div>
+      <div style='font-weight:800;font-size:.82rem;margin-top:8px'>Aktivitas Terakhir:</div>
+      ${(p.act&&p.act.length)?p.act.slice(0,3).map(a=>`<div class='it' style='padding:7px 10px'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join(''):"<div class='it mut'>Baru bergabung sebagai petualang!</div>"}
+      <div class='row' style='margin-top:12px'>
+        <button class='btn gh w' onclick='cm()'>Tutup</button>
+        <button class='btn w' onclick='cm();challengePlayer("${p.uid}")'>Tantang Duel 🔔</button>
+      </div>
+    </section>
+  </div>`;
+}
+
+/* ---------- STUDIO CERDAS CERMAT (REAL MULTIPLAYER + BOT) ---------- */
+function showIncomingDuelModal(inv){
+  $('#modal').innerHTML = `
+  <div class='ov'>
+    <section class='pn scroll' style='text-align:center'>
+      <div class='tag'>TANTANGAN DUEL MASUK!</div>
+      <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>${inv.fromName}</h2>
+      <p style='font-weight:700'>Mengajakmu bertanding live di Studio Cerdas Cermat!</p>
+      <div class='row' style='margin-top:14px'>
+        <button class='btn gh w' onclick='respondInvite("${inv.id}",false)'>Tolak</button>
+        <button class='btn yl w' onclick='respondInvite("${inv.id}",true)'>Terima & Masuk Studio ▶</button>
+      </div>
+    </section>
+  </div>`;
 }
 
 async function challengePlayer(targetUid){
+  readSharedDirectory();
   const target = ONLINE_USERS[targetUid];
   if(!target) return;
   const invId = 'inv_' + S.user.uid + '_' + targetUid + '_' + Date.now();
-  const invObj = {
+  const invData = {
     id: invId,
     fromUid: S.user.uid,
     fromName: S.user.name,
@@ -871,173 +945,191 @@ async function challengePlayer(targetUid){
     status: 'pending',
     createdAt: Date.now()
   };
-  LOCAL_INVITES[invId] = invObj;
-  $('#modal').innerHTML = `<div class='ov'><section class='pn' style='text-align:center'>
-    <div class='tag'>MENANTANG PEMAIN</div>
-    <h2 class='ttl' style='font-size:1.1rem;margin:8px 0'>Menunggu ${target.name}...</h2>
-    <p class='mut'>Undangan duel Cerdas Cermat sudah dikirim ke layar ${target.name}.</p>
-    <button class='btn gh w' style='margin-top:12px' onclick='cancelInvite("${invId}")'>Batalkan</button>
-  </section></div>`;
-  if(BC) BC.postMessage({ type: 'DUEL_INVITE', inv: invObj });
+  $('#modal').innerHTML = `
+  <div class='ov'>
+    <section class='pn' style='text-align:center'>
+      <div class='tag'>MENGUNDANG KE STUDIO</div>
+      <h2 class='ttl' style='font-size:1.05rem;margin:8px 0'>Menunggu ${target.name}...</h2>
+      <p class='mut'>Pastikan ${target.name} juga membuka web ini dan menerima tantanganmu.</p>
+      <button class='btn gh w' style='margin-top:12px' onclick='cancelInvite("${invId}")'>Batalkan</button>
+    </section>
+  </div>`;
+  sendCrossTabSignal({ type: 'DUEL_INVITE', inv: invData });
   if(db && auth?.currentUser){
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), invObj).catch(()=>{});
+    try{
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId), invData);
+    }catch(e){}
   }
 }
 
 async function cancelInvite(invId){
-  delete LOCAL_INVITES[invId];
+  $('#modal').innerHTML = '';
   if(db && auth?.currentUser){
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId)).catch(()=>{});
   }
-  cm();
+}
+
+async function respondInvite(invId, accept){
+  $('#modal').innerHTML = '';
+  const parts = invId.split('_');
+  const fromUid = parts.length >= 4 ? parts.slice(1, parts.length - 2).join('_') : '';
+  const invRef = (db && auth?.currentUser) ? doc(db, 'artifacts', appId, 'public', 'data', 'duel_invites', invId) : null;
+  let inv = null;
+  if(invRef){
+    try{
+      const snap = await getDoc(invRef);
+      if(snap.exists()) inv = snap.data();
+    }catch(e){}
+  }
+  const hostUid = inv?.fromUid || fromUid;
+  const hostName = inv?.fromName || ONLINE_USERS[hostUid]?.name || 'Penantang';
+  if(!accept){
+    sendCrossTabSignal({ type: 'DUEL_RESP', invId, fromUid: hostUid, toName: S.user.name, status: 'declined' });
+    if(invRef) await updateDoc(invRef, { status: 'declined' }).catch(()=>{});
+    return;
+  }
+  const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  const qs = shuf(Q.slice()).slice(0,4).map(q=>({ cat:q[0], q:q[1], opts:q[2], ans:q[3] }));
+  const roomData = {
+    roomId,
+    p1: { uid: hostUid, name: hostName, score: 0 },
+    p2: { uid: S.user.uid, name: S.user.name, score: 0 },
+    qs,
+    i: 0,
+    ph: 'buzz',
+    holder: null,
+    el: null,
+    ch: null,
+    msg: 'Juri membacakan soal! Tekan BEL merah sekarang!',
+    deadline: Date.now() + 12000,
+    done: false
+  };
+  sendCrossTabSignal({ type: 'DUEL_RESP', invId, fromUid: hostUid, toName: S.user.name, status: 'accepted', roomId });
+  sendCrossTabSignal({ type: 'ROOM_UPDATE', roomId, room: roomData });
+  if(db && auth?.currentUser){
+    try{
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), roomData);
+      if(invRef) await updateDoc(invRef, { status: 'accepted', roomId });
+    }catch(e){}
+  }
+  joinLiveRoom(roomId, hostName, roomData);
 }
 
 function applyRoomState(r){
-  if(!S.du || !r) return;
-  LOCAL_ROOMS[S.du.roomId] = r;
-  const isP1 = r.p1.uid === S.user.uid;
-  const meObj = isP1 ? r.p1 : r.p2;
-  const opObj = isP1 ? r.p2 : r.p1;
+  if(!S.du || S.du.roomId !== r.roomId) return;
+  const amP1 = r.p1.uid === S.user.uid;
+  const meObj = amP1 ? r.p1 : r.p2;
+  const opObj = amP1 ? r.p2 : r.p1;
+  S.du.room = r;
+  S.du.amP1 = amP1;
   S.du.on = opObj.name;
   S.du.us = meObj.score;
   S.du.os = opObj.score;
-  S.du.qs = r.qs.map(x=>[x.cat, x.q, x.opts, x.ans, x.exp]);
   S.du.i = r.i;
-  S.du.roundEndsAt = r.roundEndsAt || (Date.now()+10000);
-  S.du.t = Math.max(0, Math.ceil((S.du.roundEndsAt - Date.now())/1000));
+  S.du.qs = r.qs.map(x=>[x.cat, x.q, x.opts, x.ans]);
   S.du.el = r.el;
   S.du.ch = r.ch;
   S.du.msg = r.msg;
-  S.du.done = r.done;
-
   if(r.ph === 'buzz') S.du.ph = 'buzz';
   else if(r.ph === 'ans') S.du.ph = (r.holder === S.user.uid) ? 'me' : 'opp';
-  else if(r.ph === 'rebound') S.du.ph = (r.holder === S.user.uid) ? 'rbme' : 'rbop';
+  else if(r.ph === 'rb') S.du.ph = (r.holder === S.user.uid) ? 'rbme' : 'rbop';
   else if(r.ph === 'rev') S.du.ph = 'rev';
-
-  if(r.done && !S.du.recorded){
-    S.du.recorded = true;
+  S.du.t = Math.max(0, Math.ceil(((r.deadline || Date.now()) - Date.now()) / 1000));
+  if(r.done && !S.du.done){
+    S.du.done = true;
+    S.du.o = S.du.us > S.du.os ? 'Menang' : S.du.us === S.du.os ? 'Seri' : 'Kalah';
     clearInterval(S.du.iv);
-    S.du.o = S.du.us > S.du.os ? 'Menang' : (S.du.us === S.du.os ? 'Seri' : 'Kalah');
-    S.w.duel.unshift({ o: S.du.o, on: S.du.on + ' (Real)', us: S.du.us, os: S.du.os });
-    act('Duel Real vs ' + S.du.on, S.du.o + ' (' + S.du.us + '-' + S.du.os + ')');
+    S.w.duel.unshift({ o: S.du.o, on: S.du.on, us: S.du.us, os: S.du.os });
+    act('Duel Live vs ' + S.du.on, S.du.o + ' (' + S.du.us + '-' + S.du.os + ')');
     ign();
-    cele(S.du.o === 'Menang' ? 'Kemenangan Duel Real!' : 'Duel Real Selesai!', 'Skor akhir ' + S.du.us + ' - ' + S.du.os + ' melawan ' + S.du.on + '.');
+    cele(S.du.o==='Menang'?'Kemenangan Live!':'Pertandingan Selesai!','Skor akhir '+S.du.us+' - '+S.du.os+' melawan '+S.du.on+'.');
   }
-  render();
+  if(S.tab === 'duel') render();
 }
 
-async function pushRoomUpdate(roomId, patch){
-  const cur = LOCAL_ROOMS[roomId];
-  if(cur){
-    const next = JSON.parse(JSON.stringify(cur));
-    Object.keys(patch).forEach(k=>{
-      if(k==='p1.score') next.p1.score = patch[k];
-      else if(k==='p2.score') next.p2.score = patch[k];
-      else next[k] = patch[k];
-    });
-    LOCAL_ROOMS[roomId] = next;
-    applyRoomState(next);
-    if(BC) BC.postMessage({ type: 'ROOM_UPDATE', roomId, room: next });
-  }
-  if(db && auth?.currentUser){
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), patch).catch(()=>{});
-  }
-}
-
-function joinLiveRoom(roomId, oppName){
+function joinLiveRoom(roomId, oppName, initialRoom=null){
   if(S.du) exitDuel();
   S.tab = 'duel';
   S.du = {
     live: true,
     roomId,
     on: oppName,
-    qs: [],
-    i: 0,
-    us: 0,
-    os: 0,
-    t: 10,
+    qs: Q.slice(0,4),
+    i: 0, us: 0, os: 0, t: 12,
     ph: 'buzz',
-    msg: 'Menghubungkan panggung studio...',
-    ch: null,
-    el: null,
-    done: false,
-    recorded: false
+    msg: 'Menghubungkan ke panggung studio...',
+    ch: null, el: null, done: false,
+    room: initialRoom
   };
-  S.du.iv = setInterval(tickLiveDuel, 500);
-  if(LOCAL_ROOMS[roomId]) applyRoomState(LOCAL_ROOMS[roomId]);
+  S.du.iv = setInterval(()=>{
+    const m = S.du;
+    if(!m || m.done || !m.room) return;
+    const rem = Math.max(0, Math.ceil(((m.room.deadline || Date.now()) - Date.now()) / 1000));
+    m.t = rem;
+    const el = document.getElementById('dtm');
+    if(el) el.textContent = '⏱ 00:' + String(rem).padStart(2,'0');
+    if(rem === 0 && m.amP1 && m.room.ph !== 'rev'){
+      handleLiveTimeout();
+    }
+  }, 500);
+  if(initialRoom) applyRoomState(initialRoom);
   if(db && auth?.currentUser){
     unsubRoom = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId), (snap)=>{
-      if(!snap.exists() || !S.du || S.du.roomId !== roomId) return;
+      if(!snap.exists() || !S.du) return;
       applyRoomState(snap.data());
-    }, (err)=>console.error(err));
+    }, ()=>{});
   }
   render();
 }
 
-async function tickLiveDuel(){
-  const m = S.du;
-  if(!m || !m.live || m.done) return;
-  const rem = Math.max(0, Math.ceil(((m.roundEndsAt||Date.now()) - Date.now())/1000));
-  m.t = rem;
-  const el = document.getElementById('dtm');
-  if(el) el.textContent = fmtSec(rem);
-
-  if(rem === 0 && !m.tLock){
-    m.tLock = true;
-    setTimeout(()=>{ if(S.du) S.du.tLock = false; }, 1500);
-    let r = LOCAL_ROOMS[m.roomId];
-    if(!r && db && auth?.currentUser){
-      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
-      if(snap && snap.exists()) r = snap.data();
-    }
-    if(!r || r.done) return;
-    const q = r.qs[r.i];
-    if(r.ph === 'buzz' && r.p1.uid === S.user.uid){
-      await pushRoomUpdate(m.roomId, { ph: 'rev', msg: 'Waktu habis! Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
-      setTimeout(()=>advanceLiveRound(m.roomId), 2000);
-    }else if(r.ph === 'ans' && r.holder === S.user.uid){
-      const isP1 = r.p1.uid === S.user.uid;
-      const oppUid = isP1 ? r.p2.uid : r.p1.uid;
-      const oppName = isP1 ? r.p2.name : r.p1.name;
-      const upd = { ph: 'rebound', holder: oppUid, msg: S.user.name + ' kehabisan waktu (−50)! Lemparan ke ' + oppName + '.', roundEndsAt: Date.now()+8000 };
-      if(isP1) upd['p1.score'] = r.p1.score - 50; else upd['p2.score'] = r.p2.score - 50;
-      await pushRoomUpdate(m.roomId, upd);
-    }else if(r.ph === 'rebound' && r.holder === S.user.uid){
-      await pushRoomUpdate(m.roomId, { ph: 'rev', msg: 'Lemparan habis waktu. Kunci: ' + 'ABCD'[q.ans] + '.', roundEndsAt: Date.now()+2000 });
-      setTimeout(()=>advanceLiveRound(m.roomId), 2000);
-    }
+async function pushRoomUpdate(patch){
+  if(!S.du || !S.du.room) return;
+  const nextRoom = { ...S.du.room, ...patch };
+  applyRoomState(nextRoom);
+  sendCrossTabSignal({ type: 'ROOM_UPDATE', roomId: S.du.roomId, room: nextRoom });
+  if(db && auth?.currentUser){
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', S.du.roomId), patch).catch(()=>{});
   }
 }
 
-async function advanceLiveRound(roomId){
-  let r = LOCAL_ROOMS[roomId];
-  if(!r && db && auth?.currentUser){
-    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', roomId)).catch(()=>null);
-    if(snap && snap.exists()) r = snap.data();
+async function handleLiveTimeout(){
+  const m = S.du; if(!m || !m.room) return;
+  const r = m.room;
+  if(r.ph === 'buzz'){
+    await pushRoomUpdate({ ph: 'rev', msg: 'Waktu habis! Tidak ada yang menekan bel. Kunci: ' + 'ABCD'[r.qs[r.i].ans] + '.', deadline: Date.now() + 2500 });
+    setTimeout(()=>advanceLiveRound(), 2500);
+  }else if(r.ph === 'ans' || r.ph === 'rb'){
+    await pushRoomUpdate({ ph: 'rev', msg: 'Waktu menjawab habis! Kunci: ' + 'ABCD'[r.qs[r.i].ans] + '.', deadline: Date.now() + 2500 });
+    setTimeout(()=>advanceLiveRound(), 2500);
   }
-  if(!r || r.done) return;
+}
+
+async function advanceLiveRound(){
+  const m = S.du; if(!m || !m.room || !m.amP1) return;
+  const r = m.room;
   if(r.i + 1 < r.qs.length){
-    await pushRoomUpdate(roomId, {
+    await pushRoomUpdate({
       i: r.i + 1,
       ph: 'buzz',
       holder: null,
       el: null,
       ch: null,
-      msg: 'Babak berikutnya! Tekan BEL merah!',
-      roundEndsAt: Date.now() + 12000
+      msg: 'Ronde berikutnya! Tekan BEL merah sekarang!',
+      deadline: Date.now() + 12000
     });
   }else{
-    await pushRoomUpdate(roomId, { done: true, ph: 'rev', msg: 'Pertandingan selesai!' });
+    await pushRoomUpdate({ done: true });
   }
 }
 
 function tabDuel(){
  const m=S.du,u=S.user;
  if(!m){
+  readSharedDirectory();
   const s=stats();
-  const realOnline = getActivePlayers();
-  const allPlayers = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid);
+  const qStr = (S.searchQ || '').trim().toLowerCase();
+  const allPlayers = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid && (!qStr || (p.name||'').toLowerCase().includes(qStr)));
+  const realOnline = allPlayers.filter(p=>p.online && (Date.now()-(p.lastSeen||0))<90000);
   $('#main').innerHTML=`
   <div class='cc-stage' style='padding-bottom:14px'>
     <div class='cc-hud'>
@@ -1059,7 +1151,7 @@ function tabDuel(){
         </div>
         <div class='cc-scr-body' style='text-align:center'>
           <div class='cc-round-pill'>ARENA MULTIPLAYER REAL & BOT</div>
-          <div class='cc-qbox' style='margin-bottom:10px'>Pilih lawan pemain asli yang sedang online di bawah untuk duel langsung, atau berlatih melawan Bot!</div>
+          <div class='cc-qbox' style='margin-bottom:10px'>Pilih lawan pemain asli yang terdeteksi di bawah untuk duel langsung, atau berlatih melawan Bot!</div>
           <button class='btn yl w' style='border-radius:999px;background:linear-gradient(180deg,#fde047,#eab308);border-color:#1e3a8a' onclick='startD()'>Latihan Cepat vs Bot ▶</button>
         </div>
       </div>
@@ -1075,60 +1167,62 @@ function tabDuel(){
   </div>
 
   <section class='pn'>
-    <div class='row bt' style='margin-bottom:6px'>
-      <h2 class='ttl' style='font-size:1rem'>Pemain Real Online (${realOnline.length})</h2>
-      <span class='tag' style='margin:0'>LIVE</span>
+    <div class='row bt' style='margin-bottom:8px'>
+      <div>
+        <h2 class='ttl' style='font-size:.98rem'>Pemain Real (${realOnline.length} Online)</h2>
+        <span class='mut' style='font-size:.72rem'>Buka tab/HP lain lalu masuk dengan nama berbeda untuk duel</span>
+      </div>
+      <button class='btn yl sm' onclick='refreshPlayersNow()' ${S.refreshing?'disabled':''}>${S.refreshing?'Memuat...':'🔄 Refresh'}</button>
     </div>
-    <p class='mut' style='margin-bottom:8px'>Ketuk nama pemain untuk melihat profilnya atau menantang duel Cerdas Cermat!</p>
+    <div class='row' style='margin-bottom:10px;gap:6px'>
+      <input class='inp' style='margin-top:0;padding:8px 10px;font-size:.82rem' type='text' placeholder='Cari nama pemain real...' value='${(S.searchQ||'').replace(/'/g,"&#39;")}' oninput='S.searchQ=this.value;render()' />
+      ${S.searchQ?`<button class='btn gh sm' onclick='S.searchQ="";render()'>✕</button>`:''}
+    </div>
     ${allPlayers.length ? allPlayers.map(p=>{
-      const isOn = p.online && (Date.now()-(p.lastSeen||0))<60000;
+      const isOn = p.online && (Date.now()-(p.lastSeen||0))<90000;
       return `<div class='it row bt'>
         <div style='cursor:pointer;flex:1' onclick='openPlayerProfile("${p.uid}")'>
-          <div style='font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${p.name}</div>
+          <div style='font-weight:800'><i class='${isOn?'dot-on':'dot-off'}'></i>${p.name} <span class='mut' style='font-size:.7rem'>(${isOn?'Online':'Tersimpan'})</span></div>
           <div class='mut'>Lv.${p.lv||0} • ${p.gr||'Pelajar'} (${p.g||'-'})</div>
         </div>
         <div class='row' style='gap:6px'>
           <button class='btn gh sm' onclick='openPlayerProfile("${p.uid}")'>Profil</button>
-          <button class='btn sm' ${isOn?'':'disabled'} onclick='challengePlayer("${p.uid}")'>Duel</button>
+          <button class='btn sm' onclick='challengePlayer("${p.uid}")'>Duel</button>
         </div>
       </div>`;
-    }).join('') : `<div class='it mut'>Belum ada pemain lain yang masuk. Buka tab baru dan masuk dengan nama Guest lain untuk mencoba duel 2 pemain!</div>`}
+    }).join('') : `<div class='it mut'>Belum ada pemain dengan nama lain yang terdeteksi. Klik <b>🔄 Refresh</b> atau buka tab/perangkat lain lalu masuk dengan nama berbeda!</div>`}
   </section>
 
   <section class='pn'><h2 class='ttl' style='font-size:1rem'>Riwayat Duel</h2><p class='mut'>${s.dw} menang / ${s.dn} main</p>${S.w.duel.map(d=>`<div class='it row bt'><span><span class='tag' style='margin:0'>${d.o}</span> vs ${d.on}</span><b>${d.us} - ${d.os}</b></div>`).join('')||"<div class='it mut'>Belum ada duel.</div>"}</section>`;
   return;
  }
+
  if(m.done){
   $('#main').innerHTML=`
-  <div class='cc-stage' style='padding-bottom:18px'>
-    <div class='cc-hud'>
-      <div class='cc-wing ${m.us>=m.os?'active':''}'>
-        <div class='cc-trophy'>🏆</div>
-        <div><div class='cc-pname'>${u.name.split(' ')[0]}</div><div class='cc-scorebox'><small>SCORE</small><strong>${m.us}</strong></div></div>
-      </div>
-      <div style='display:grid;place-items:center;font-weight:800;font-size:.75rem;color:#fde047'>FINAL</div>
-      <div class='cc-wing ${m.os>=m.us?'active':''}'>
-        <div><div class='cc-pname'>${m.on.split(' ')[0]}</div><div class='cc-scorebox'><small>SCORE</small><strong>${m.os}</strong></div></div>
-        <div class='cc-trophy'>🏆</div>
-      </div>
-    </div>
+  <div class='cc-stage' style='padding-bottom:18px;text-align:center'>
     <div class='cc-frame'>
       <div class='cc-screen'>
         <div class='cc-scr-head'>
-          <div class='cc-scr-title'>🏆 Cerdas Cermat</div>
+          <div class='cc-scr-title'>🏆 Hasil Pertandingan</div>
           <div class='cc-scr-timer'>SELESAI</div>
         </div>
-        <div class='cc-scr-body' style='text-align:center'>
-          <div class='cc-round-pill'>${(m.o||'SELESAI').toUpperCase()}</div>
-          <div class='cc-qbox'>Hasil Akhir: ${u.name.split(' ')[0]} (${m.us}) vs ${m.on.split(' ')[0]} (${m.os})</div>
-          <button class='btn yl w' style='border-radius:999px;background:linear-gradient(180deg,#fde047,#eab308);border-color:#1e3a8a' onclick='exitDuel();render()'>Kembali ke Lobi ▶</button>
+        <div class='cc-scr-body'>
+          <div class='tag' style='margin-bottom:6px'>${m.o.toUpperCase()}</div>
+          <h1 class='ttl' style='font-size:1.35rem;margin-bottom:10px'>Duel Selesai!</h1>
+          <div class='g2' style='margin:10px 0'>
+            <div class='st'><strong>${m.us}</strong>${u.name.split(' ')[0]}</div>
+            <div class='st'><strong>${m.os}</strong>${m.on.split(' ')[0]}</div>
+          </div>
+          <button class='btn yl w' style='border-radius:999px;margin-top:8px' onclick='exitDuel();render()'>Kembali ke Lobi ▶</button>
         </div>
       </div>
     </div>
   </div>`;
   return;
  }
- const q=m.qs[m.i]||['-','Memuat soal...',['-','-','-','-'],0,''],me=m.ph==='me'||m.ph==='rbme',oppAct=m.ph==='opp'||m.ph==='rbop';
+
+ const q=m.qs[m.i],me=m.ph==='me'||m.ph==='rbme';
+ const tFmt='00:'+String(Math.max(0,m.t)).padStart(2,'0');
  $('#main').innerHTML=`
  <div class='cc-stage'>
   <div class='cc-hud'>
@@ -1139,8 +1233,8 @@ function tabDuel(){
         <div class='cc-scorebox'><small>SCORE</small><strong>${m.us}</strong></div>
       </div>
     </div>
-    <button class='cc-exit' onclick='exitDuel();render()' title='Keluar Arena'>✕</button>
-    <div class='cc-wing ${oppAct?'active':''}'>
+    <button class='cc-exit' onclick='exitDuel();render()' title='Keluar Studio'>✕</button>
+    <div class='cc-wing ${m.ph==='opp'||m.ph==='rbop'?'active':''}'>
       <div>
         <div class='cc-pname'>${m.on.split(' ')[0]}</div>
         <div class='cc-scorebox'><small>SCORE</small><strong>${m.os}</strong></div>
@@ -1152,11 +1246,14 @@ function tabDuel(){
   <div class='cc-frame'>
     <div class='cc-screen'>
       <div class='cc-scr-head'>
-        <div class='cc-scr-title'>🏆 Cerdas Cermat ${m.live?'<span style="font-size:.62rem;background:#fde047;color:#0f172a;padding:1px 6px;border-radius:99px">LIVE</span>':''}</div>
-        <div class='cc-scr-timer'>⏱ <span id='dtm'>${fmtSec(m.t)}</span></div>
+        <div class='cc-scr-title'>🏆 Cerdas Cermat ${m.live?'(LIVE)':''}</div>
+        <div class='cc-scr-timer' id='dtm'>⏱ ${tFmt}</div>
       </div>
       <div class='cc-scr-body'>
-        <div style='text-align:center'><span class='cc-round-pill'>BABAK ${m.i+1} / ${m.qs.length}</span></div>
+        <div class='row bt'>
+          <span class='cc-round-pill'>SOAL ${m.i+1} / ${m.qs.length}</span>
+          <span style='font-size:.66rem;font-weight:800;color:#64748b'>${q[0]}</span>
+        </div>
         <div class='cc-qbox'>${q[1]}</div>
         <div class='cc-opts'>
           ${q[2].map((o,i)=>{
@@ -1166,7 +1263,7 @@ function tabDuel(){
           }).join('')}
         </div>
         <div class='cc-status'>${m.msg}</div>
-        ${m.ph==='rbme'?"<button class='btn gh sm w' style='margin-top:8px;border-radius:999px' onclick='pass()'>Lewati lemparan (skor aman)</button>":''}
+        ${m.ph==='rbme'?"<button class='btn gh sm w' style='margin-top:6px;border-radius:999px' onclick='pass()'>Lewati Lemparan (Skor Aman)</button>":''}
       </div>
     </div>
   </div>
@@ -1174,34 +1271,31 @@ function tabDuel(){
   <div class='cc-floor'>
     <div class='cc-podium'>
       <div class='cc-buzzer-wrap'>
-        <button class='cc-buzzer' ${m.ph==='buzz'?'':'disabled'} onclick='buzz()' aria-label='Tekan Bel'>
+        <button class='cc-buzzer' ${m.ph==='buzz'?'':'disabled'} onclick='buzz()' aria-label='Tekan Bel Cerdas Cermat'>
           <div class='cc-buzzer-base'></div>
           <div class='cc-buzzer-dome'></div>
         </button>
       </div>
-      <div class='cc-desk'><span>${m.ph==='buzz'?'Tekan Bel Merah!':(me?'Silakan Menjawab':'Podium Terkunci')}</span></div>
+      <div class='cc-desk'><span>${m.ph==='buzz'?'TEKAN BEL MERAH!':'PODIUM PESERTA'}</span></div>
     </div>
   </div>
  </div>`;
 }
-function startD(){if(S.du)exitDuel();S.du={live:false,on:S.user.g==='Laki-laki'?'Raka Pratama (Bot)':'Alya Putri (Bot)',qs:shuf(Q.slice()).slice(0,4),i:0,us:0,os:0,t:10,ph:'buzz',msg:'Juri membacakan soal! Tekan BEL!',ch:null,el:null,tm:0,done:false};S.du.iv=setInterval(tickDuel,1000);roundStart();render()}
-function tickDuel(){const m=S.du;if(!m||m.live||m.done)return;if(m.t>0)m.t--;const el=document.getElementById('dtm');if(el)el.textContent=fmtSec(m.t)}
-function roundStart(){const m=S.du;if(!m||m.live)return;clearTimeout(m.tm);m.ph='buzz';m.el=null;m.ch=null;m.t=10;const delay=2500+Math.random()*3000;m.tm=setTimeout(oppBuzz,delay);m.ph0=Date.now()}
-function oppBuzz(){const m=S.du;if(!m||m.live||m.ph!=='buzz')return;clearTimeout(m.tm);m.ph='opp';m.msg=m.on+' menekan bel duluan!';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',m.qs[m.i][3])}else{m.os-=50;m.ph='rbme';m.el=null;m.msg='Salah (−50)! Soal lemparan untukmu.';m.t=7;render();m.tm=setTimeout(()=>reveal('Lemparan dilewati.',m.qs[m.i][3]),7000)}},1200)}
+
+function startD(){if(S.du)exitDuel();S.du={live:false,on:S.user.g==='Laki-laki'?'Raka Pratama':'Alya Putri',qs:shuf(Q.slice()).slice(0,4),i:0,us:0,os:0,t:10,ph:'buzz',msg:'Juri membacakan soal! Tekan BEL merah sekarang!',ch:null,el:null,tm:0,done:false};S.du.iv=setInterval(tickDuel,1000);roundStart();render()}
+function tickDuel(){const m=S.du;if(!m||m.done||m.live)return;if(m.t>0)m.t--;const el=document.getElementById('dtm');if(el)el.textContent='⏱ 00:'+String(m.t).padStart(2,'0')}
+function roundStart(){const m=S.du;if(!m)return;clearTimeout(m.tm);m.ph='buzz';m.el=null;m.ch=null;m.t=10;const delay=2500+Math.random()*3000;m.tm=setTimeout(oppBuzz,delay);m.ph0=Date.now()}
+function oppBuzz(){const m=S.du;if(!m||m.ph!=='buzz')return;clearTimeout(m.tm);m.ph='opp';m.msg=m.on+' menekan bel duluan!';render();m.tm=setTimeout(()=>{if(Math.random()<.5){m.os+=100;reveal(m.on+' benar, +100.',m.qs[m.i][3])}else{m.os-=50;m.ph='rbme';m.el=null;m.msg='Salah (−50)! Soal lemparan untukmu.';m.t=7;render();m.tm=setTimeout(()=>reveal('Lemparan dilewati.',m.qs[m.i][3]),7000)}},1200)}
 async function buzz(){
   const m=S.du;if(!m||m.ph!=='buzz')return;
-  if(m.live){
-    let r = LOCAL_ROOMS[m.roomId];
-    if(!r && db && auth?.currentUser){
-      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
-      if(snap && snap.exists()) r = snap.data();
-    }
-    if(!r || r.ph !== 'buzz') return;
-    await pushRoomUpdate(m.roomId, {
+  if(m.live && m.room){
+    const r = m.room;
+    if(r.ph !== 'buzz') return;
+    await pushRoomUpdate({
       ph: 'ans',
       holder: S.user.uid,
-      msg: S.user.name + ' menekan BEL duluan! Memilih jawaban...',
-      roundEndsAt: Date.now() + 10000
+      msg: S.user.name + ' menekan BEL duluan! Pilih jawaban...',
+      deadline: Date.now() + 10000
     });
     return;
   }
@@ -1209,36 +1303,54 @@ async function buzz(){
 }
 async function ans(i){
   const m=S.du;if(!m)return;const q=m.qs[m.i];
-  if(m.live){
-    let r = LOCAL_ROOMS[m.roomId];
-    if(!r && db && auth?.currentUser){
-      const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'duel_rooms', m.roomId)).catch(()=>null);
-      if(snap && snap.exists()) r = snap.data();
-    }
-    if(!r || r.holder !== S.user.uid) return;
-    const isP1 = r.p1.uid === S.user.uid;
-    const oppUid = isP1 ? r.p2.uid : r.p1.uid;
-    const oppName = isP1 ? r.p2.name : r.p1.name;
-    if(r.ph === 'ans'){
+  if(m.live && m.room){
+    const r = m.room;
+    const myKey = m.amP1 ? 'p1' : 'p2';
+    const oppUid = m.amP1 ? r.p2.uid : r.p1.uid;
+    const oppName = m.amP1 ? r.p2.name : r.p1.name;
+    const curScore = r[myKey].score;
+    if(m.ph === 'me'){
       if(i === q[3]){
-        const upd = { ph: 'rev', ch: i, msg: S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 };
-        if(isP1) upd['p1.score'] = r.p1.score + 100; else upd['p2.score'] = r.p2.score + 100;
-        await pushRoomUpdate(m.roomId, upd);
-        setTimeout(()=>advanceLiveRound(m.roomId), 2000);
+        const updatedP = { ...r[myKey], score: curScore + 100 };
+        await pushRoomUpdate({
+          [myKey]: updatedP,
+          ph: 'rev',
+          ch: i,
+          msg: S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.',
+          deadline: Date.now() + 2500
+        });
+        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
       }else{
-        const upd = { ph: 'rebound', holder: oppUid, el: i, msg: S.user.name + ' salah (−50)! Lemparan ke ' + oppName + '...', roundEndsAt: Date.now()+8000 };
-        if(isP1) upd['p1.score'] = r.p1.score - 50; else upd['p2.score'] = r.p2.score - 50;
-        await pushRoomUpdate(m.roomId, upd);
+        const updatedP = { ...r[myKey], score: curScore - 50 };
+        await pushRoomUpdate({
+          [myKey]: updatedP,
+          ph: 'rb',
+          holder: oppUid,
+          el: i,
+          msg: S.user.name + ' salah (−50)! Soal lemparan untuk ' + oppName + '.',
+          deadline: Date.now() + 8000
+        });
       }
-    }else if(r.ph === 'rebound'){
+    }else if(m.ph === 'rbme'){
       if(i === q[3]){
-        const upd = { ph: 'rev', ch: i, msg: S.user.name + ' tepat menjawab lemparan (+100)! Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 };
-        if(isP1) upd['p1.score'] = r.p1.score + 100; else upd['p2.score'] = r.p2.score + 100;
-        await pushRoomUpdate(m.roomId, upd);
+        const updatedP = { ...r[myKey], score: curScore + 100 };
+        await pushRoomUpdate({
+          [myKey]: updatedP,
+          ph: 'rev',
+          ch: i,
+          msg: 'Lemparan ' + S.user.name + ' benar (+100)! Kunci: ' + 'ABCD'[q[3]] + '.',
+          deadline: Date.now() + 2500
+        });
+        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
       }else{
-        await pushRoomUpdate(m.roomId, { ph: 'rev', ch: i, msg: 'Lemparan kurang tepat. Kunci: ' + 'ABCD'[q[3]] + '.', roundEndsAt: Date.now()+2000 });
+        await pushRoomUpdate({
+          ph: 'rev',
+          ch: i,
+          msg: 'Lemparan kurang tepat, skor aman. Kunci: ' + 'ABCD'[q[3]] + '.',
+          deadline: Date.now() + 2500
+        });
+        setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
       }
-      setTimeout(()=>advanceLiveRound(m.roomId), 2000);
     }
     return;
   }
@@ -1246,9 +1358,13 @@ async function ans(i){
 }
 async function pass(){
   const m=S.du;if(!m||m.ph!=='rbme')return;
-  if(m.live){
-    await pushRoomUpdate(m.roomId, { ph: 'rev', msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[m.qs[m.i][3]] + '.', roundEndsAt: Date.now()+2000 });
-    setTimeout(()=>advanceLiveRound(m.roomId), 2000);
+  if(m.live && m.room){
+    await pushRoomUpdate({
+      ph: 'rev',
+      msg: S.user.name + ' melewati lemparan. Kunci: ' + 'ABCD'[m.qs[m.i][3]] + '.',
+      deadline: Date.now() + 2500
+    });
+    setTimeout(()=>{ if(m.amP1) advanceLiveRound(); }, 2500);
     return;
   }
   clearTimeout(m.tm);reveal('Kamu melewati lemparan.',m.qs[m.i][3]);
@@ -1256,61 +1372,57 @@ async function pass(){
 function reveal(msg,ci,ch){const m=S.du;if(!m||m.done)return;clearTimeout(m.tm);m.ph='rev';m.ch=ch==null?null:ch;m.msg=msg+' Kunci: '+'ABCD'[ci]+'.';render();m.tm=setTimeout(nextD,1800)}
 function nextD(){const m=S.du;if(!m)return;if(m.i+1<m.qs.length){m.i++;roundStart();render();return}
  m.o=m.us>m.os?'Menang':m.us===m.os?'Seri':'Kalah';m.done=true;clearInterval(m.iv);S.w.duel.unshift({o:m.o,on:m.on,us:m.us,os:m.os});act('Duel vs '+m.on,m.o+' ('+m.us+'-'+m.os+')');ign();render();cele(m.o==='Menang'?'Kemenangan Duel!':'Duel Selesai!','Skor akhir '+m.us+' - '+m.os+' melawan '+m.on+'.')}
-function exitDuel(){
-  if(S.du){
-    clearTimeout(S.du.tm);
-    clearInterval(S.du.iv);
-    if(unsubRoom){ unsubRoom(); unsubRoom = null; }
-    S.du=null;
-  }
-}
+function exitDuel(){if(unsubRoom){unsubRoom();unsubRoom=null}if(S.du){clearTimeout(S.du.tm);clearInterval(S.du.iv);S.du=null}}
 
 /* ---------- PAIR ---------- */
+function tabPair(){const p=S.w.pair;
+ if(!p.on){$('#main').innerHTML=`<section class='pn hero' style='text-align:center;padding:24px 16px'><h1 class='ttl' style='font-size:1.2rem'>Belum Punya Partner</h1><p style='margin:8px 0;font-weight:700'>Bangun konsistensi bersama satu partner sesama gender (${S.user.g}). Tanpa chat bebas.</p><button class='btn yl w' onclick='connectPair()'>Hubungkan Partner ▶</button></section>`;return}
+ $('#main').innerHTML=`<section class='pn hero'><div class='ttl' style='font-size:2rem'>${p.streak} <span style='font-size:1rem'>Day Streak</span></div><b>Bersama ${p.pn}</b></section><section class='pn'><div class='row bt'>${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map((d,i)=>`<div style='text-align:center'><div class='mut'>${d}</div><div class='kj' style='width:34px;height:34px;font-size:.9rem;margin:4px auto 0;${p.days[i]?'':'background:var(--card)'}'>${p.days[i]?'★':'·'}</div></div>`).join('')}</div></section><section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Catatan Bersama</h2>${p.logs.map(l=>`<div class='it'>${l}</div>`).join('')||"<div class='it mut'>Belum ada catatan. Selesaikan misi untuk menyalakan streak!</div>"}<button class='btn gh sm w' style='margin-top:12px' onclick='disconnectPair()'>Akhiri Hubungan Pair</button></section>`}
 function connectPair(){
+  readSharedDirectory();
+  const realSameG = Object.values(ONLINE_USERS).find(x=>x && x.uid!==S.user.uid && x.g===S.user.g);
+  const partnerName = realSameG ? realSameG.name : (S.user.g==='Laki-laki'?'Raka Pratama':'Siti Rahma');
   S.w.pair.on=true;
-  S.w.pair.pn=S.user.g==="Laki-laki"?"Raka Pratama":"Siti Rahma";
-  S.w.pair.logs=[S.w.pair.pn+" menyelesaikan Latsol Aljabar (90%)"];
-  act("Terhubung dengan "+S.w.pair.pn,"Pair sesama gender");
-  scheduleSync();
+  S.w.pair.pn=partnerName;
+  S.w.pair.logs=[partnerName+' menyelesaikan Latsol Aljabar (90%)'];
+  act('Terhubung dengan '+partnerName,'Pair sesama gender');
   render();
 }
 function disconnectPair(){
   S.w.pair.on=false;
   S.w.pair.logs=[];
-  scheduleSync();
+  syncUserCloud();
   render();
 }
-function tabPair(){const p=S.w.pair;
- if(!p.on){$('#main').innerHTML=`<section class='pn hero' style='text-align:center;padding:24px 16px'><h1 class='ttl' style='font-size:1.2rem'>Belum Punya Partner</h1><p style='margin:8px 0;font-weight:700'>Bangun konsistensi bersama satu partner sesama gender (${S.user.g}). Tanpa chat bebas.</p><button class='btn yl w' onclick='connectPair()'>Hubungkan Partner ▶</button></section>`;return}
- $('#main').innerHTML=`<section class='pn hero'><div class='ttl' style='font-size:2rem'>${p.streak} <span style='font-size:1rem'>Day Streak</span></div><b>Bersama ${p.pn}</b></section><section class='pn'><div class='row bt'>${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map((d,i)=>`<div style='text-align:center'><div class='mut'>${d}</div><div class='kj' style='width:34px;height:34px;font-size:.9rem;margin:4px auto 0;${p.days[i]?'':'background:var(--card)'}'>${p.days[i]?'★':'·'}</div></div>`).join('')}</div></section><section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Catatan Bersama</h2>${p.logs.map(l=>`<div class='it'>${l}</div>`).join('')||"<div class='it mut'>Belum ada catatan. Selesaikan misi untuk menyalakan streak!</div>"}<button class='btn gh sm w' style='margin-top:12px' onclick='disconnectPair()'>Akhiri Hubungan Pair</button></section>`}
 
 /* ---------- PROFIL ---------- */
 function tabProfil(){
- const s=stats(),u=S.user,A=[['Bara Pertama','Naikkan aura minimal Lv.1',s.lv>=1],['Penjelajah Konsep','Selesaikan 1 bab',s.d>=1],['Ketajaman Logika','Selesaikan 1 sesi Latsol',s.pc>=1],['Juara Arena','Menangkan 1 duel',s.dw>=1]];
- const allPlayers = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid);
- $('#main').innerHTML=`<section class='pn hero'><div class='row'><div class='kj' style='width:60px;height:60px;font-size:1.6rem'>${(u.name||'我')[0].toUpperCase()}</div><div><h1 class='ttl' style='font-size:1.1rem'>${u.name}</h1><div style='font-weight:700'>${u.gr} • ${u.g}</div><div class='tag' style='margin-top:6px'>Aura Lv.${s.lv} • ${LV[s.lv]}</div></div></div></section>
- <div class='g4' style='margin-bottom:16px'>${[[s.d,'Materi'],[s.pc,'Latsol'],[s.dw,'Menang'],[s.pct+'%','Progres']].map(x=>`<div class='st'><strong>${x[0]}</strong><span class='mut'>${x[1]}</span></div>`).join('')}</div>
- <section class='pn'>
-   <h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Komunitas Pemain Real (${allPlayers.length})</h2>
-   ${allPlayers.length ? allPlayers.map(p=>{
-     const isOn = p.online && (Date.now()-(p.lastSeen||0))<60000;
-     return `<div class='it row bt' style='cursor:pointer' onclick='openPlayerProfile("${p.uid}")'>
-       <div><b><i class='${isOn?'dot-on':'dot-off'}'></i>${p.name}</b><div class='mut'>Lv.${p.lv||0} • ${p.gr||'Pelajar'}</div></div>
-       <span class='tag' style='margin:0'>Lihat Profil ▶</span>
-     </div>`;
-   }).join('') : `<div class='it mut'>Belum ada pemain lain yang terdaftar saat ini.</div>`}
- </section>
- <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Pencapaian</h2>${A.map(a=>`<div class='it row bt' style='opacity:${a[2]?1:.55}'><span><b>${a[0]}</b><br><span class='mut'>${a[1]}</span></span><span class='tag' style='margin:0'>${a[2]?'TERCAPAI':'TERKUNCI'}</span></div>`).join('')}</section>
- <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Riwayat Aktivitas</h2>${S.w.act.slice(0,6).map(a=>`<div class='it'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join('')||"<div class='it mut'>Belum ada aktivitas.</div>"}</section>
- <button class='btn gh w' onclick='logout()'>Keluar dari Akun</button>`}
+  readSharedDirectory();
+  const s=stats(),u=S.user,A=[['Bara Pertama','Naikkan aura minimal Lv.1',s.lv>=1],['Penjelajah Konsep','Selesaikan 1 bab',s.d>=1],['Ketajaman Logika','Selesaikan 1 sesi Latsol',s.pc>=1],['Juara Arena','Menangkan 1 duel',s.dw>=1]];
+  const others = Object.values(ONLINE_USERS).filter(p=>p && p.uid!==u.uid);
+  $('#main').innerHTML=`<section class='pn hero'><div class='row'><div class='kj' style='width:60px;height:60px;font-size:1.6rem'>${u.name[0].toUpperCase()}</div><div><h1 class='ttl' style='font-size:1.1rem'>${u.name}</h1><div style='font-weight:700'>${u.gr} • ${u.g}</div><div class='tag' style='margin-top:6px'>Aura Lv.${s.lv} • ${LV[s.lv]}</div></div></div></section>
+  <div class='g4' style='margin-bottom:16px'>${[[s.d,'Materi'],[s.pc,'Latsol'],[s.dw,'Menang'],[s.pct+'%','Progres']].map(x=>`<div class='st'><strong>${x[0]}</strong><span class='mut'>${x[1]}</span></div>`).join('')}</div>
+  <section class='pn'><div class='row bt' style='margin-bottom:6px'><h2 class='ttl' style='font-size:1rem'>Komunitas Pemain (${others.length})</h2><button class='btn gh sm' onclick='refreshPlayersNow()'>🔄</button></div>${others.length?others.map(p=>{const isOn=p.online&&(Date.now()-(p.lastSeen||0))<90000;return `<div class='it row bt' style='cursor:pointer' onclick='openPlayerProfile("${p.uid}")'><span><i class='${isOn?'dot-on':'dot-off'}'></i><b>${p.name}</b> <span class='mut'>(Lv.${p.lv||0})</span><br><span class='mut'>${p.gr||'Pelajar'} • ${p.g||'-'}</span></span><span class='tag' style='margin:0'>LIHAT</span></div>`}).join(''):"<div class='it mut'>Belum ada pemain lain terdaftar.</div>"}</section>
+  <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Pencapaian</h2>${A.map(a=>`<div class='it row bt' style='opacity:${a[2]?1:.55}'><span><b>${a[0]}</b><br><span class='mut'>${a[1]}</span></span><span class='tag' style='margin:0'>${a[2]?'TERCAPAI':'TERKUNCI'}</span></div>`).join('')}</section>
+  <section class='pn'><h2 class='ttl' style='font-size:1rem;margin-bottom:6px'>Riwayat Aktivitas</h2>${S.w.act.slice(0,6).map(a=>`<div class='it'><b>${a[0]}</b><div class='mut'>${a[1]} • ${a[2]}</div></div>`).join('')||"<div class='it mut'>Belum ada aktivitas.</div>"}</section>
+  <button class='btn gh w' onclick='logout()'>Keluar dari Akun</button>`;
+}
+
 async function logout(){
   saveMap();
   exitDuel();
+  clearSessionState();
   if(S.user){
-    if(ONLINE_USERS[S.user.uid]) ONLINE_USERS[S.user.uid].online = false;
-    if(BC) BC.postMessage({ type: 'PLAYER_OFFLINE', uid: S.user.uid });
+    if(ONLINE_USERS[S.user.uid]){
+      ONLINE_USERS[S.user.uid].online = false;
+      writeSharedPlayer(ONLINE_USERS[S.user.uid]);
+    }
+    sendCrossTabSignal({ type: 'PLAYER_OFFLINE', uid: S.user.uid });
     if(db && auth?.currentUser){
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', S.user.uid), { online: false, lastSeen: Date.now() }).catch(()=>{});
+      if(fbUid){
+        await setDoc(doc(db, 'artifacts', appId, 'users', fbUid, 'profile', 'state'), { activeUser: null }, { merge: true }).catch(()=>{});
+      }
     }
   }
   if(unsubPlayers){ unsubPlayers(); unsubPlayers = null; }
@@ -1320,34 +1432,33 @@ async function logout(){
 }
 
 window.loginGuest = loginGuest;
+window.refreshPlayersNow = refreshPlayersNow;
 window.openPlayerProfile = openPlayerProfile;
 window.challengePlayer = challengePlayer;
 window.cancelInvite = cancelInvite;
 window.respondInvite = respondInvite;
+window.cm = cm;
 window.go = go;
 window.menuMap = menuMap;
 window.mapTap = mapTap;
-window.openL = openL;
 window.stp = stp;
-window.wbPrev = wbPrev;
-window.wbNext = wbNext;
+window.leaveL = leaveL;
 window.selQ = selQ;
 window.subQ = subQ;
-window.leaveL = leaveL;
 window.startP = startP;
 window.selP = selP;
 window.subP = subP;
-window.cancelP = cancelP;
-window.connectPair = connectPair;
-window.disconnectPair = disconnectPair;
 window.startD = startD;
 window.buzz = buzz;
 window.ans = ans;
 window.pass = pass;
 window.exitDuel = exitDuel;
-window.cm = cm;
+window.connectPair = connectPair;
+window.disconnectPair = disconnectPair;
 window.logout = logout;
 window.encAns = encAns;
+window.render = render;
+window.S = S;
 
 /* ---------- MULAI ---------- */
 let JP=null;
@@ -1361,6 +1472,6 @@ const KM={ArrowUp:'u',w:'u',W:'u',ArrowDown:'d',s:'d',S:'d',ArrowLeft:'l',a:'l',
 window.addEventListener('keydown',e=>{const m=KM[e.key];if(m){KB[m]=1;if(e.key.startsWith('Arrow')&&S.tab==='belajar'&&!S.les)e.preventDefault()}if(e.key==='e'||e.key==='E'||e.key==='Enter'||e.key===' '){if(mapActive())mapTap()}});
 window.addEventListener('keyup',e=>{const m=KM[e.key];if(m)KB[m]=0});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){joyEnd();KB.u=KB.d=KB.l=KB.r=0;saveMap()}});
-render();
+restoreSessionOnLoad();
 </script></body></html>
 ```
