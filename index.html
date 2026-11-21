@@ -22,7 +22,8 @@
 --editorial: 'Newsreader', Georgia, serif;
 --mono: 'Space Mono', monospace;
 }
-​* { box-sizing: border-box; margin: 0; padding: 0; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
 width: 100%;
 height: 100%;
@@ -33,7 +34,8 @@ font-family: var(--display);
 -webkit-font-smoothing: antialiased;
 user-select: none;
 }
-​.noise {
+
+.noise {
 position: fixed;
 inset: 0;
 pointer-events: none;
@@ -42,7 +44,8 @@ opacity: 0.03;
 background-image: radial-gradient(rgba(255,255,255,0.22) 1px, transparent 0);
 background-size: 3px 3px;
 }
-​.cursor-ring {
+
+.cursor-ring {
 position: fixed;
 top: 0; left: 0;
 width: 24px; height: 24px;
@@ -62,7 +65,8 @@ width: 68px; height: 68px;
 background: rgba(255, 72, 20, 0.16);
 border-color: var(--ember);
 }
-​/* Smooth Flame + Logo Opening Curtain */
+
+/* Smooth Flame + Logo Opening Curtain */
 #splash {
 position: fixed;
 inset: 0;
@@ -93,7 +97,8 @@ letter-spacing: 0.28em;
 text-transform: uppercase;
 color: var(--muted);
 }
-​/* Persistent Monumental Kinetic Emblem Field */
+
+/* Persistent Monumental Kinetic Emblem Field */
 #heroField {
 position: fixed;
 inset: 0;
@@ -103,7 +108,8 @@ z-index: 1;
 pointer-events: none;
 will-change: transform;
 }
-​/* Cinematic Speed-Ramp Letterbox Bars */
+
+/* Cinematic Speed-Ramp Letterbox Bars */
 .cine-bar {
 position: fixed;
 left: 0;
@@ -116,7 +122,8 @@ will-change: transform;
 }
 .cine-bar.top { top: 0; transform: translate3d(0, -100%, 0); }
 .cine-bar.bot { bottom: 0; transform: translate3d(0, 100%, 0); }
-​/* Top Safe-Zone Floating HUD */
+
+/* Top Safe-Zone Floating HUD */
 .hud-top {
 position: fixed;
 top: 0; left: 0; right: 0;
@@ -153,7 +160,8 @@ fill: #F7F4ED;
 transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .hud-brand:hover svg { transform: rotate(-18deg) scale(1.12); }
-​.hud-nav {
+
+.hud-nav {
 pointer-events: auto;
 display: flex;
 gap: 20px;
@@ -177,7 +185,8 @@ transition: opacity 0.25s, color 0.25s;
 padding: 4px 0;
 }
 .hud-link:hover, .hud-link.active { opacity: 1; color: var(--ember); }
-​/* CINEMA SPEED-RAMP SPATIAL STAGE */
+
+/* CINEMA SPEED-RAMP SPATIAL STAGE */
 #viewport {
 position: fixed;
 inset: 0;
@@ -187,7 +196,8 @@ transform-style: preserve-3d;
 overflow: hidden;
 touch-action: none;
 }
-​.scene {
+
+.scene {
 position: absolute;
 inset: 0;
 width: 100%;
@@ -205,7 +215,8 @@ visibility: hidden;
 .scene.is-current {
 pointer-events: auto;
 }
-​.scene-dark {
+
+.scene-dark {
 background: transparent;
 color: var(--white);
 }
@@ -219,7 +230,8 @@ height: auto;
 padding: clamp(24px, 4vw, 52px);
 box-shadow: 0 28px 80px rgba(0, 0, 0, 0.72);
 }
-​.kicker {
+
+.kicker {
 font-family: var(--mono);
 font-size: 0.7rem;
 letter-spacing: 0.2em;
@@ -230,7 +242,8 @@ display: inline-flex;
 align-items: center;
 gap: 10px;
 }
-​.btn-primary {
+
+.btn-primary {
 background: var(--ember);
 color: #fff;
 border: 0;
@@ -245,7 +258,8 @@ cursor: pointer;
 transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), background 0.22s;
 }
 .btn-primary:hover { transform: scale(1.04); background: #ff5b2b; }
-​.btn-outline {
+
+.btn-outline {
 background: rgba(18, 18, 17, 0.86);
 color: var(--white);
 border: 1px solid rgba(247, 244, 237, 0.24);
@@ -259,7 +273,8 @@ cursor: pointer;
 transition: border-color 0.22s, background 0.22s;
 }
 .btn-outline:hover { border-color: #fff; background: rgba(255, 255, 255, 0.16); }
-​/* SCENE 0: HERO */
+
+/* SCENE 0: HERO */
 .hero-inner {
 max-width: 1260px;
 width: 100%;
@@ -306,7 +321,8 @@ flex-wrap: wrap;
 gap: 10px;
 align-items: center;
 }
-​/* SCENE 1: EDITORIAL APPROACH (PAPER) */
+
+/* SCENE 1: EDITORIAL APPROACH (PAPER) */
 .paper-inner {
 max-width: 1180px;
 width: 100%;
@@ -352,7 +368,8 @@ font-size: clamp(0.86rem, 1vw, 0.96rem);
 line-height: 1.6;
 color: #46433C;
 }
-​/* SCENE 2: FIVE PRODUCT SPACES */
+
+/* SCENE 2: FIVE PRODUCT SPACES */
 .eco-inner {
 max-width: 1260px;
 width: 100%;
@@ -469,7 +486,8 @@ margin-bottom: 3px;
 font-size: 0.84rem;
 color: var(--white);
 }
-​/* SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW */
+
+/* SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW */
 .studio-grid {
 max-width: 1220px;
 width: 100%;
@@ -545,7 +563,8 @@ gap: 12px;
 font-size: 0.82rem;
 color: #D2CEC4;
 }
-​/* SCENE 4: TRUST PILLARS & BRAND MONUMENT */
+
+/* SCENE 4: TRUST PILLARS & BRAND MONUMENT */
 .closing-inner {
 max-width: 1240px;
 width: 100%;
@@ -621,7 +640,8 @@ font-weight: 800;
 letter-spacing: -0.05em;
 line-height: 0.9;
 }
-​/* BOTTOM SAFE-ZONE SPATIAL DOCK */
+
+/* BOTTOM SAFE-ZONE SPATIAL DOCK */
 .spatial-dock {
 position: fixed;
 bottom: 0;
@@ -685,7 +705,8 @@ cursor: pointer;
 transition: background 0.22s, color 0.22s, border-color 0.22s;
 }
 .arrow-btn:hover { background: var(--ember); border-color: var(--ember); color: #fff; }
-​/* Document Drawer Modal */
+
+/* Document Drawer Modal */
 .drawer {
 position: fixed;
 inset: 0;
@@ -707,7 +728,8 @@ max-height: 82vh;
 overflow-y: auto;
 padding: 34px;
 }
-​@media (max-width: 960px) {
+
+@media (max-width: 960px) {
 .hud-top { height: 60px; padding: 0 16px; }
 .hud-nav { display: none; }
 .scene { padding: 68px 16px 82px; }
@@ -739,23 +761,28 @@ padding: 34px;
 <body>
 <div class="noise"></div>
 <div class="cursor-ring" id="cursorRing"></div>
-​<!-- Vector Trace of Rascademy Company Emblem -->
+
+<!-- Vector Trace of Rascademy Company Emblem -->
 <svg width="0" height="0" style="position:absolute">
 <defs>
 <path id="rascademy-emblem-path" d="M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z" />
 </defs>
 </svg>
-​<!-- Opening Smooth Flame + Emblem Curtain -->
+
+<!-- Opening Smooth Flame + Emblem Curtain -->
 <div id="splash" aria-hidden="true">
 <canvas id="flameCanvas" width="480" height="480"></canvas>
 <div class="splash-caption">Rascademy</div>
 </div>
-​<!-- Persistent Monumental Kinetic Emblem Field -->
+
+<!-- Persistent Monumental Kinetic Emblem Field -->
 <canvas id="heroField"></canvas>
-​<!-- Cinematic Speed-Ramp Letterbox Bars -->
+
+<!-- Cinematic Speed-Ramp Letterbox Bars -->
 <div class="cine-bar top" id="cineTop"></div>
 <div class="cine-bar bot" id="cineBot"></div>
-​<!-- Top Safe-Zone Floating HUD -->
+
+<!-- Top Safe-Zone Floating HUD -->
 <header class="hud-top">
 <button class="hud-brand" onclick="goScene(0)">
 <svg viewBox="180 230 640 580" aria-hidden="true">
@@ -763,7 +790,8 @@ padding: 34px;
 </svg>
 <span>Rascademy</span>
 </button>
-​<nav class="hud-nav" id="hudNav">
+
+<nav class="hud-nav" id="hudNav">
 <button class="hud-link active" onclick="goScene(0)">01 Beranda</button>
 <button class="hud-link" onclick="goScene(1)">02 Pendekatan</button>
 <button class="hud-link" onclick="goScene(2)">03 Produk</button>
@@ -771,19 +799,20 @@ padding: 34px;
 <button class="hud-link" onclick="goScene(4)">05 Prinsip</button>
 </nav>
 </header>
-​<!-- CINEMATIC SPEED-RAMP SPATIAL STAGE -->
+
+<!-- CINEMATIC SPEED-RAMP SPATIAL STAGE -->
 <main id="viewport">
-​<!-- SCENE 0: MONUMENTAL PRODUCT INTRODUCTION -->
+
+<!-- SCENE 0: MONUMENTAL PRODUCT INTRODUCTION -->
 <section class="scene scene-dark is-current" data-idx="0">
 <div class="hero-inner">
 <div class="hero-copy">
 <div class="kicker">CONCEPT-FIRST MATHEMATICS PLATFORM</div>
 <h1 class="hero-headline">
-FONDASI <em>Konsep,</em>
-
+FONDASI <em>Konsep,</em><br>
 KEJELASAN POLA.
 </h1>
-​<div class="hero-subrow">
+<div class="hero-subrow">
 <p class="hero-desc">
 Rascademy menghadirkan ruang belajar matematika modern yang menempatkan pemahaman konsep sebagai fondasi utama—memadukan papan tulis digital jernih, latihan terstruktur, dan kompetisi akademik dalam suasana belajar yang tenang.
 </p>
@@ -796,14 +825,15 @@ Rascademy menghadirkan ruang belajar matematika modern yang menempatkan pemahama
 <div aria-hidden="true"></div>
 </div>
 </section>
-​<!-- SCENE 1: EDITORIAL APPROACH (PAPER) -->
+
+<!-- SCENE 1: EDITORIAL APPROACH (PAPER) -->
 <section class="scene scene-paper" data-idx="1">
 <div class="paper-inner">
 <div class="kicker">01 // PENDEKATAN PEMBELAJARAN</div>
 <h2 class="manifesto-quote">
 Banyak pelajar sanggup mengikuti contoh soal, namun memerlukan pegangan lebih kuat saat menghadapi variasi baru. Rascademy membangun jembatan <span>pemahaman konsep</span> dari akarnya.
 </h2>
-​<div class="shift-grid">
+<div class="shift-grid">
 <div class="shift-col">
 <small>POLA UMUM SEBELUMNYA</small>
 <h3>Hafalan Langkah & Kebisingan Visual</h3>
@@ -821,20 +851,21 @@ Setiap materi tersusun sistematis dari peta konsep menuju contoh bermakna dan ev
 </div>
 </div>
 </section>
-​<!-- SCENE 2: FIVE PRODUCT SPACES -->
+
+<!-- SCENE 2: FIVE PRODUCT SPACES -->
 <section class="scene scene-dark" data-idx="2">
 <div class="eco-inner">
 <div class="eco-header">
 <div>
 <div class="kicker">02 // EKOSISTEM PRODUK</div>
-<h2 class="eco-title">Lima Ruang Utama
-dalam Satu <em>Aplikasi.</em></h2>
+<h2 class="eco-title">Lima Ruang Utama<br>dalam Satu <em>Aplikasi.</em></h2>
 </div>
 <p style="max-width:340px;color:#BDB8AD;font-size:0.9rem;line-height:1.55;">
 Setiap ruang saling terhubung untuk mendampingi perjalanan belajar mandiri maupun kolaboratif.
 </p>
 </div>
-​<div class="filmstrip">
+
+<div class="filmstrip">
 <article class="reel active" onclick="activateReel(this)">
 <div class="reel-head"><span>01 / BELAJAR</span><span>INTI KONSEP</span></div>
 <div class="reel-vert">01 — Belajar Konsep</div>
@@ -852,7 +883,8 @@ Alur belajar mengalir dari Roadmap → Bab → Subbab → Video Papan Tulis → 
 </div>
 </div>
 </article>
-​<article class="reel" onclick="activateReel(this)">
+
+<article class="reel" onclick="activateReel(this)">
 <div class="reel-head"><span>02 / LATSOL</span><span>PENGUATAN</span></div>
 <div class="reel-vert">02 — Latsol Terukur</div>
 <div class="reel-body">
@@ -869,7 +901,8 @@ Pengguna memilih materi dan level kesulitan (Dasar, Menengah, Lanjutan) untuk me
 </div>
 </div>
 </article>
-​<article class="reel" onclick="activateReel(this)">
+
+<article class="reel" onclick="activateReel(this)">
 <div class="reel-head"><span>03 / CERDAS CERMAT</span><span>KOMPETISI</span></div>
 <div class="reel-vert">03 — Cerdas Cermat 1v1</div>
 <div class="reel-body">
@@ -886,7 +919,8 @@ Pertandingan 1 lawan 1 secara sinkron untuk mengukur ketajaman berpikir. Pencoco
 </div>
 </div>
 </article>
-​<article class="reel" onclick="activateReel(this)">
+
+<article class="reel" onclick="activateReel(this)">
 <div class="reel-head"><span>04 / PAIR</span><span>KOLABORASI</span></div>
 <div class="reel-vert">04 — Pair Partner</div>
 <div class="reel-body">
@@ -903,7 +937,8 @@ Satu akun terhubung dengan satu partner belajar sesama gender untuk menyusun tar
 </div>
 </div>
 </article>
-​<article class="reel" onclick="activateReel(this)">
+
+<article class="reel" onclick="activateReel(this)">
 <div class="reel-head"><span>05 / PROFIL</span><span>PERKEMBANGAN</span></div>
 <div class="reel-vert">05 — Profil & Progres</div>
 <div class="reel-body">
@@ -923,7 +958,8 @@ Satu pusat informasi untuk meninjau kemajuan roadmap, akurasi latihan soal, penc
 </div>
 </div>
 </section>
-​<!-- SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW -->
+
+<!-- SCENE 3: DIGITAL WHITEBOARD STUDIO PREVIEW -->
 <section class="scene scene-paper" data-idx="3">
 <div class="studio-grid">
 <div class="studio-copy">
@@ -934,7 +970,8 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 </p>
 <button class="btn-primary" onclick="openDoc('privacy')">Kebijakan Privasi & Ketentuan</button>
 </div>
-​<div class="device-frame">
+
+<div class="device-frame">
 <div class="device-bar">
 <span>RASCADEMY CANVAS • MODE PAPAN TULIS</span>
 <div class="mode-pills">
@@ -950,14 +987,16 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 </div>
 </div>
 </section>
-​<!-- SCENE 4: ETHICAL CHARTER & MONUMENTAL BRAND LOCKUP -->
+
+<!-- SCENE 4: TRUST PILLARS & BRAND MONUMENT -->
 <section class="scene scene-dark" data-idx="4">
 <div class="closing-inner">
 <div class="closing-head">
 <div class="kicker">04 // STANDAR KEPERCAYAAN RASCADEMY</div>
 <h2 class="eco-title">Dirancang untuk <em>Kenyamanan</em> Pelajar.</h2>
 </div>
-​<div class="pillars-row">
+
+<div class="pillars-row">
 <div class="pillar-card">
 <span>01 // HENING</span>
 <h4>Tanpa Notifikasi</h4>
@@ -979,14 +1018,16 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 <p>Persetujuan berbagi progres pada fitur Pair bersifat sukarela dan dapat dicabut kapan saja.</p>
 </div>
 </div>
-​<div class="monument-bar">
+
+<div class="monument-bar">
 <div class="wordmark-lockup">
 <svg viewBox="180 230 640 580" aria-label="Logo Rascademy">
 <use href="#rascademy-emblem-path" />
 </svg>
 <div class="wordmark-text">RASCADEMY</div>
 </div>
-​<div class="cta-row">
+
+<div class="cta-row">
 <button class="btn-outline" onclick="openDoc('privacy')">Privacy Policy</button>
 <button class="btn-outline" onclick="openDoc('terms')">Terms of Use</button>
 <button class="btn-primary" onclick="goScene(0)">Ke Awal Halaman ↑</button>
@@ -994,23 +1035,28 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 </div>
 </div>
 </section>
-​</main>
-​<!-- BOTTOM SAFE-ZONE SPATIAL DOCK -->
+
+</main>
+
+<!-- BOTTOM SAFE-ZONE SPATIAL DOCK -->
 <div class="spatial-dock">
 <div class="dock-counter" id="dockCounter">01 / 05 — BERANDA</div>
-​<div class="dock-rail" id="dockRail">
+
+<div class="dock-rail" id="dockRail">
 <button class="rail-dot active" onclick="goScene(0)" aria-label="Bagian 1"></button>
 <button class="rail-dot" onclick="goScene(1)" aria-label="Bagian 2"></button>
 <button class="rail-dot" onclick="goScene(2)" aria-label="Bagian 3"></button>
 <button class="rail-dot" onclick="goScene(3)" aria-label="Bagian 4"></button>
 <button class="rail-dot" onclick="goScene(4)" aria-label="Bagian 5"></button>
 </div>
-​<div class="dock-arrows">
+
+<div class="dock-arrows">
 <button class="arrow-btn" onclick="stepScene(-1)" aria-label="Sebelumnya">←</button>
 <button class="arrow-btn" onclick="stepScene(1)" aria-label="Berikutnya">→</button>
 </div>
 </div>
-​<!-- DOCUMENT MODAL DRAWER -->
+
+<!-- DOCUMENT MODAL DRAWER -->
 <div class="drawer" id="docDrawer" onclick="closeDoc()">
 <div class="drawer-box" onclick="event.stopPropagation()">
 <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line-light);margin-bottom:18px;">
@@ -1021,36 +1067,43 @@ Di dalam Rascademy, konsep abstrak diterjemahkan menjadi visual grafis yang hidu
 <div id="drawerBody" style="display:flex;flex-direction:column;gap:12px;font-size:0.95rem;line-height:1.68;color:#3B3832;"></div>
 </div>
 </div>
-​<script>
+
+<script>
 const LOGO_PATH_STR = "M 520 262 C 462 260, 392 302, 362 342 C 344 366, 358 386, 396 394 C 446 404, 514 404, 512 436 C 510 472, 434 480, 364 484 C 282 488, 226 534, 218 614 C 214 654, 224 684, 240 682 C 260 678, 286 632, 344 610 C 402 588, 456 614, 462 666 C 468 712, 444 748, 458 768 C 474 790, 542 772, 606 732 C 654 702, 682 674, 672 652 C 660 626, 604 606, 594 568 C 584 532, 616 516, 654 536 C 696 558, 756 562, 782 536 C 804 514, 784 494, 742 484 C 682 470, 636 434, 630 374 C 624 306, 586 264, 520 262 Z";
-​// 1. Smooth Flame + Logo Opening Curtain
+
+// 1. Smooth Flame + Logo Opening Curtain
 (function runSplash() {
 const c = document.getElementById('flameCanvas');
+if (!c) return;
 const ctx = c.getContext('2d');
 const logoPath = new Path2D(LOGO_PATH_STR);
 let start = performance.now();
 let active = true;
-​function frame(now) {
+
+function frame(now) {
 if (!active) return;
 const t = (now - start) / 1000;
 ctx.clearRect(0, 0, 480, 480);
-​const grad = ctx.createRadialGradient(240, 250, 12, 240, 250, 175 + Math.sin(t * 5) * 14);
+
+const grad = ctx.createRadialGradient(240, 250, 12, 240, 250, 175 + Math.sin(t * 5) * 14);
 grad.addColorStop(0, 'rgba(255, 72, 20, 0.56)');
 grad.addColorStop(0.55, 'rgba(244, 185, 66, 0.16)');
 grad.addColorStop(1, 'rgba(5, 5, 5, 0)');
 ctx.fillStyle = grad;
 ctx.fillRect(0, 0, 480, 480);
-​for (let i = 0; i < 12; i++) {
+
+for (let i = 0; i < 12; i++) {
 const p = ((t * 0.85 + i * 0.17) % 1);
 const x = 240 + Math.sin(t * 3 + i * 2.1) * (36 * (1 - p));
 const y = 320 - p * 190;
 const r = (1 - p) * 18;
 ctx.beginPath();
 ctx.arc(x, y, Math.max(1, r), 0, Math.PI * 2);
-ctx.fillStyle = rgba(255, ${Math.round(90 + p * 120)}, 30, ${(1 - p) * 0.34});
+ctx.fillStyle = 'rgba(255, ' + Math.round(90 + p * 120) + ', 30, ' + ((1 - p) * 0.34) + ')';
 ctx.fill();
 }
-​ctx.save();
+
+ctx.save();
 ctx.translate(240, 242);
 const s = 0.34 + Math.min(0.04, t * 0.04);
 ctx.scale(s, s);
@@ -1058,16 +1111,19 @@ ctx.translate(-500, -520);
 ctx.fillStyle = '#F7F4ED';
 ctx.fill(logoPath);
 ctx.restore();
-​if (t < 1.15) {
+
+if (t < 1.15) {
 requestAnimationFrame(frame);
 } else {
 active = false;
-document.getElementById('splash').classList.add('done');
+const splashEl = document.getElementById('splash');
+if (splashEl) splashEl.classList.add('done');
 }
 }
 requestAnimationFrame(frame);
 })();
-​// 2. ULTRA-SMOOTH SPRING INTERTIA ENGINE
+
+// 2. ULTRA-SMOOTH SPRING INTERTIA ENGINE
 const SCENE_NAMES = ['BERANDA', 'PENDEKATAN', 'EKOSISTEM PRODUK', 'STUDIO VISUAL', 'STANDAR KEPERCAYAAN'];
 const scenes = Array.from(document.querySelectorAll('.scene'));
 const reels = Array.from(document.querySelectorAll('.reel'));
@@ -1075,14 +1131,16 @@ const pillarCards = Array.from(document.querySelectorAll('.pillar-card'));
 const cineTop = document.getElementById('cineTop');
 const cineBot = document.getElementById('cineBot');
 const TOTAL_SCENES = scenes.length;
-​let currentScene = 0;
+
+let currentScene = 0;
 let targetScene = 0;
 let smoothProgress = 0;
 let wheelLock = 0;
 let touchStartX = 0;
 let touchStartY = 0;
 let lastTime = performance.now();
-​function goScene(idx) {
+
+function goScene(idx) {
 targetScene = Math.max(0, Math.min(TOTAL_SCENES - 1, idx));
 if (targetScene !== currentScene) {
 currentScene = targetScene;
@@ -1092,17 +1150,23 @@ scenes[i].classList.toggle('is-current', i === currentScene);
 updateDockUI();
 }
 }
-​function stepScene(dir) {
+
+function stepScene(dir) {
 goScene(currentScene + dir);
 }
-​function updateDockUI() {
-document.getElementById('dockCounter').textContent =
-0${currentScene + 1} / 0${TOTAL_SCENES} — ${SCENE_NAMES[currentScene]};
+
+function updateDockUI() {
+const counter = document.getElementById('dockCounter');
+if (counter) {
+counter.textContent = '0' + (currentScene + 1) + ' / 0' + TOTAL_SCENES + ' — ' + SCENE_NAMES[currentScene];
+}
 document.querySelectorAll('.rail-dot').forEach((d, i) => d.classList.toggle('active', i === currentScene));
 document.querySelectorAll('.hud-link').forEach((l, i) => l.classList.toggle('active', i === currentScene));
 }
-​window.addEventListener('wheel', (e) => {
-if (document.getElementById('docDrawer').classList.contains('open')) return;
+
+window.addEventListener('wheel', (e) => {
+const drawer = document.getElementById('docDrawer');
+if (drawer && drawer.classList.contains('open')) return;
 const dominant = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
 if (Math.abs(dominant) < 10) return;
 const now = performance.now();
@@ -1110,43 +1174,54 @@ if (now - wheelLock < 450) return;
 wheelLock = now;
 stepScene(dominant > 0 ? 1 : -1);
 }, { passive: true });
-​window.addEventListener('keydown', (e) => {
-if (document.getElementById('docDrawer').classList.contains('open')) {
+
+window.addEventListener('keydown', (e) => {
+const drawer = document.getElementById('docDrawer');
+if (drawer && drawer.classList.contains('open')) {
 if (e.key === 'Escape') closeDoc();
 return;
 }
 if (e.key === 'ArrowRight' || e.key === 'PageDown') stepScene(1);
 if (e.key === 'ArrowLeft' || e.key === 'PageUp') stepScene(-1);
 });
-​const viewport = document.getElementById('viewport');
+
+const viewport = document.getElementById('viewport');
+if (viewport) {
 viewport.addEventListener('touchstart', (e) => {
 touchStartX = e.touches[0].clientX;
 touchStartY = e.touches[0].clientY;
 }, { passive: true });
-​viewport.addEventListener('touchend', (e) => {
+
+viewport.addEventListener('touchend', (e) => {
 const dx = e.changedTouches[0].clientX - touchStartX;
 const dy = e.changedTouches[0].clientY - touchStartY;
 if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy)) {
 stepScene(dx < 0 ? 1 : -1);
 }
 }, { passive: true });
-​// 3. Out-of-the-Box Cinema Choreography + Monumental Kinetic Emblem with Spring Physics
+}
+
+// 3. Out-of-the-Box Cinema Choreography + Monumental Kinetic Emblem with Spring Physics
 (function initSpatialStage() {
 const canvas = document.getElementById('heroField');
+if (!canvas) return;
 const ctx = canvas.getContext('2d', { alpha: true });
 let W = 0, H = 0, dpr = 1;
 let basePoints = [];
 let particles = [];
 const mouse = { x: -9999, y: -9999, active: false };
-​const FORMATIONS = [
+
+const FORMATIONS = [
 { ax: 0.74, ay: 0.48, rad: 0.49, rot: -0.04 },
 { ax: 0.22, ay: 0.50, rad: 0.58, rot:  0.65 },
 { ax: 0.85, ay: 0.23, rad: 0.25, rot: -0.25 },
 { ax: 0.50, ay: 0.50, rad: 0.62, rot:  0.22 },
 { ax: 0.84, ay: 0.19, rad: 0.22, rot:  0.00 }
 ];
-​function lerp(a, b, t) { return a + (b - a) * t; }
-​function getFormationAt(prog) {
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function getFormationAt(prog) {
 const clamped = Math.max(0, Math.min(TOTAL_SCENES - 1, prog));
 const i0 = Math.floor(clamped);
 const i1 = Math.min(TOTAL_SCENES - 1, i0 + 1);
@@ -1160,27 +1235,32 @@ rad: lerp(A.rad, B.rad, e),
 rot: lerp(A.rot, B.rot, e)
 };
 }
-​function sampleLogo() {
+
+function sampleLogo() {
 dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 W = canvas.width = Math.floor(window.innerWidth * dpr);
 H = canvas.height = Math.floor(window.innerHeight * dpr);
-​const off = document.createElement('canvas');
+
+const off = document.createElement('canvas');
 const size = 240;
 off.width = size;
 off.height = size;
 const octx = off.getContext('2d');
 const p2d = new Path2D(LOGO_PATH_STR);
-​octx.save();
+
+octx.save();
 octx.translate(size / 2, size / 2);
 octx.scale(0.36, 0.36);
 octx.translate(-500, -520);
 octx.fillStyle = '#ffffff';
 octx.fill(p2d);
 octx.restore();
-​const img = octx.getImageData(0, 0, size, size).data;
+
+const img = octx.getImageData(0, 0, size, size).data;
 const step = window.innerWidth < 768 ? 7 : 6;
 const pts = [];
-​for (let y = 0; y < size; y += step) {
+
+for (let y = 0; y < size; y += step) {
 for (let x = 0; x < size; x += step) {
 if (img[(y * size + x) * 4 + 3] > 128) {
 const isEdge = (
@@ -1209,32 +1289,39 @@ phase: Math.random() * Math.PI * 2
 }));
 }
 }
-​window.addEventListener('resize', sampleLogo);
+
+window.addEventListener('resize', sampleLogo);
 sampleLogo();
-​window.addEventListener('pointermove', (e) => {
+
+window.addEventListener('pointermove', (e) => {
 mouse.x = e.clientX * dpr;
 mouse.y = e.clientY * dpr;
 mouse.active = true;
 }, { passive: true });
 window.addEventListener('pointerleave', () => { mouse.active = false; });
-​function animate(now) {
+
+function animate(now) {
 const dt = Math.min(0.05, (now - lastTime) * 0.001);
 lastTime = now;
 const t = now * 0.0014;
-​// Spring Interia Interpolation for 10000$ USD silky smooth feel
+
 const diff = targetScene - smoothProgress;
 smoothProgress += diff * Math.min(1, dt * 11.5);
-​const instVel = Math.abs(diff) * 3.2;
-​if (cineTop && cineBot) {
+
+const instVel = Math.abs(diff) * 3.2;
+
+if (cineTop && cineBot) {
 const barShift = Math.abs(diff) * 18;
-cineTop.style.transform = translate3d(0, ${(-100 + barShift).toFixed(1)}%, 0);
-cineBot.style.transform = translate3d(0, ${(100 - barShift).toFixed(1)}%, 0);
+cineTop.style.transform = 'translate3d(0, ' + (-100 + barShift).toFixed(1) + '%, 0)';
+cineBot.style.transform = 'translate3d(0, ' + (100 - barShift).toFixed(1) + '%, 0)';
 }
-​for (let i = 0; i < TOTAL_SCENES; i++) {
+
+for (let i = 0; i < TOTAL_SCENES; i++) {
 const el = scenes[i];
 const d = i - smoothProgress;
 const absD = Math.abs(d);
-​if (absD > 1.12) {
+
+if (absD > 1.12) {
 if (el.style.visibility !== 'hidden') {
 el.style.opacity = '0';
 el.style.visibility = 'hidden';
@@ -1244,56 +1331,53 @@ continue;
 if (el.style.visibility !== 'visible') {
 el.style.visibility = 'visible';
 }
-​const reveal = Math.max(0, 1 - absD * 1.05);
+
+const reveal = Math.max(0, 1 - absD * 1.05);
 const ease = reveal * reveal * (3 - 2 * reveal);
 const inv = 1 - ease;
-​if (i === 0) {
+
+if (i === 0) {
 const zDepth = -absD * 520;
 const skewX = d * instVel * -6;
 el.style.opacity = String(ease);
-el.style.transform = translate3d(${(d * 30).toFixed(2)}vw, ${(d * -8).toFixed(2)}vh, ${zDepth.toFixed(1)}px) rotateY(${(d * -24).toFixed(2)}deg) skewX(${skewX.toFixed(2)}deg) scale3d(${(0.78 + ease * 0.22).toFixed(4)}, ${(0.78 + ease * 0.22).toFixed(4)}, 1);
+el.style.transform = 'translate3d(' + (d * 30).toFixed(2) + 'vw, ' + (d * -8).toFixed(2) + 'vh, ' + zDepth.toFixed(1) + 'px) rotateY(' + (d * -24).toFixed(2) + 'deg) skewX(' + skewX.toFixed(2) + 'deg) scale3d(' + (0.78 + ease * 0.22).toFixed(4) + ', ' + (0.78 + ease * 0.22).toFixed(4) + ', 1)';
 } else if (i === 1) {
 const slantTop = (inv * 100).toFixed(1);
 const slantBot = Math.min(100, inv * 138).toFixed(1);
 el.style.opacity = String(Math.min(1, ease * 1.3));
-el.style.clipPath = ease > 0.996
-? 'none'
-: polygon(${slantTop}% 0%, 100% 0%, 100% 100%, ${slantBot}% 100%);
-el.style.transform = translate3d(${(d * 14).toFixed(2)}vw, ${(inv * 6).toFixed(2)}vh, ${(-inv * 190).toFixed(1)}px) rotateX(${(inv * 14).toFixed(2)}deg) rotateZ(${(d * -3.2).toFixed(2)}deg) scale3d(${(0.89 + ease * 0.11).toFixed(4)}, ${(0.89 + ease * 0.11).toFixed(4)}, 1);
+el.style.clipPath = ease > 0.996 ? 'none' : 'polygon(' + slantTop + '% 0%, 100% 0%, 100% 100%, ' + slantBot + '% 100%)';
+el.style.transform = 'translate3d(' + (d * 14).toFixed(2) + 'vw, ' + (inv * 6).toFixed(2) + 'vh, ' + (-inv * 190).toFixed(1) + 'px) rotateX(' + (inv * 14).toFixed(2) + 'deg) rotateZ(' + (d * -3.2).toFixed(2) + 'deg) scale3d(' + (0.89 + ease * 0.11).toFixed(4) + ', ' + (0.89 + ease * 0.11).toFixed(4) + ', 1)';
 } else if (i === 2) {
 el.style.opacity = String(ease);
-el.style.transform = translate3d(${(d * 42).toFixed(2)}vw, 0, ${(-absD * 280).toFixed(1)}px) rotateY(${(d * -18).toFixed(2)}deg);
+el.style.transform = 'translate3d(' + (d * 42).toFixed(2) + 'vw, 0, ' + (-absD * 280).toFixed(1) + 'px) rotateY(' + (d * -18).toFixed(2) + 'deg)';
 for (let r = 0; r < reels.length; r++) {
 const stagger = Math.max(0, Math.min(1, (ease - r * 0.035) / 0.85));
 const sInv = 1 - stagger;
 const fanX = (r - 2) * sInv * 24;
 const fanY = sInv * (68 + r * 18);
 const fanRot = (r - 2) * sInv * -7.5;
-reels[r].style.transform = ease > 0.996
-? 'none'
-: translate3d(${fanX.toFixed(1)}px, ${fanY.toFixed(1)}px, 0) rotateZ(${fanRot.toFixed(2)}deg);
+reels[r].style.transform = ease > 0.996 ? 'none' : 'translate3d(' + fanX.toFixed(1) + 'px, ' + fanY.toFixed(1) + 'px, 0) rotateZ(' + fanRot.toFixed(2) + 'deg)';
 }
 } else if (i === 3) {
 const anamorphicHeight = Math.min(100, inv * 170).toFixed(1);
 const lensBlur = (inv * 18).toFixed(1);
 el.style.opacity = String(Math.min(1, ease * 1.35));
-el.style.filter = ease > 0.996 ? 'none' : blur(${lensBlur}px) brightness(${1 + inv * 0.35});
-el.style.clipPath = ease > 0.996
-? 'none'
-: inset(${anamorphicHeight}% 0% ${anamorphicHeight}% 0% round 32px);
-el.style.transform = translate3d(0, ${(inv * -35).toFixed(2)}vh, ${(-inv * 650).toFixed(1)}px) rotateX(${(inv * -26).toFixed(2)}deg) scale3d(${(0.74 + ease * 0.26).toFixed(4)}, ${(0.74 + ease * 0.26).toFixed(4)}, 1);
+el.style.filter = ease > 0.996 ? 'none' : 'blur(' + lensBlur + 'px) brightness(' + (1 + inv * 0.35) + ')';
+el.style.clipPath = ease > 0.996 ? 'none' : 'inset(' + anamorphicHeight + '% 0% ' + anamorphicHeight + '% 0% round 32px)';
+el.style.transform = 'translate3d(0, ' + (inv * -35).toFixed(2) + 'vh, ' + (-inv * 650).toFixed(1) + 'px) rotateX(' + (inv * -26).toFixed(2) + 'deg) scale3d(' + (0.74 + ease * 0.26).toFixed(4) + ', ' + (0.74 + ease * 0.26).toFixed(4) + ', 1)';
 } else if (i === 4) {
 el.style.opacity = String(ease);
-el.style.transform = translate3d(${(d * 32).toFixed(2)}vw, ${(inv * 12).toFixed(2)}vh, ${(-inv * 420).toFixed(1)}px) rotateX(${(inv * -20).toFixed(2)}deg) rotateY(${(d * -28).toFixed(2)}deg) rotateZ(${(d * 6.5).toFixed(2)}deg) scale3d(${(0.82 + ease * 0.18).toFixed(4)}, ${(0.82 + ease * 0.18).toFixed(4)}, 1);
+el.style.transform = 'translate3d(' + (d * 32).toFixed(2) + 'vw, ' + (inv * 12).toFixed(2) + 'vh, ' + (-inv * 420).toFixed(1) + 'px) rotateX(' + (inv * -20).toFixed(2) + 'deg) rotateY(' + (d * -28).toFixed(2) + 'deg) rotateZ(' + (d * 6.5).toFixed(2) + 'deg) scale3d(' + (0.82 + ease * 0.18).toFixed(4) + ', ' + (0.82 + ease * 0.18).toFixed(4) + ', 1)';
 for (let c = 0; c < pillarCards.length; c++) {
 const lag = Math.max(0, Math.min(1, (ease - c * 0.055) / 0.78));
 const cEase = lag * lag * (3 - 2 * lag);
 pillarCards[c].style.opacity = String(cEase);
-pillarCards[c].style.transform = translate3d(0, ${((1 - cEase) * 56).toFixed(1)}px, 0) rotateX(${((1 - cEase) * 24).toFixed(1)}deg) scale3d(${(0.88 + cEase * 0.12).toFixed(4)}, ${(0.88 + cEase * 0.12).toFixed(4)}, 1);
+pillarCards[c].style.transform = 'translate3d(0, ' + ((1 - cEase) * 56).toFixed(1) + 'px, 0) rotateX(' + ((1 - cEase) * 24).toFixed(1) + 'deg) scale3d(' + (0.88 + cEase * 0.12).toFixed(4) + ', ' + (0.88 + cEase * 0.12).toFixed(4) + ', 1)';
 }
 }
 }
-​ctx.clearRect(0, 0, W, H);
+
+ctx.clearRect(0, 0, W, H);
 const form = getFormationAt(smoothProgress);
 const isMobile = window.innerWidth < 960;
 const anchorX = W * (isMobile ? 0.50 : form.ax);
@@ -1304,10 +1388,12 @@ const cosR = Math.cos(dynamicRot);
 const sinR = Math.sin(dynamicRot);
 const repulseR = 120 * dpr;
 const repulseR2 = repulseR * repulseR;
-​const edgePath = new Path2D();
+
+const edgePath = new Path2D();
 const innerPath = new Path2D();
 const hotPath = new Path2D();
-​for (let i = 0; i < particles.length; i++) {
+
+for (let i = 0; i < particles.length; i++) {
 const p = particles[i];
 const bp = basePoints[i];
 const wave = Math.sin(t * 1.4 + p.phase) * 0.024;
@@ -1315,7 +1401,8 @@ const rx = bp.nx * (1 + wave);
 const ry = bp.ny * (1 + wave);
 const tx = anchorX + (rx * cosR - ry * sinR) * radius;
 const ty = anchorY + (rx * sinR + ry * cosR) * radius;
-​if (mouse.active) {
+
+if (mouse.active) {
 const dx = p.x - mouse.x;
 const dy = p.y - mouse.y;
 const d2 = dx * dx + dy * dy;
@@ -1326,56 +1413,72 @@ p.vx += (dx / dist) * force;
 p.vy += (dy / dist) * force;
 }
 }
-​p.vx += (tx - p.x) * 0.14;
+
+p.vx += (tx - p.x) * 0.14;
 p.vy += (ty - p.y) * 0.14;
 p.vx *= 0.78;
 p.vy *= 0.78;
 p.x += p.vx;
 p.y += p.vy;
-​const speed2 = p.vx * p.vx + p.vy * p.vy;
+
+const speed2 = p.vx * p.vx + p.vy * p.vy;
 const targetPath = speed2 > (2.6 * dpr * dpr) ? hotPath : (p.edge ? edgePath : innerPath);
 targetPath.moveTo(p.x + p.r, p.y);
 targetPath.arc(p.x, p.y, p.r, 0, Math.PI * 2);
 }
-​ctx.fillStyle = 'rgba(247, 244, 237, 0.34)';
+
+ctx.fillStyle = 'rgba(247, 244, 237, 0.34)';
 ctx.fill(innerPath);
 ctx.fillStyle = 'rgba(247, 244, 237, 0.90)';
 ctx.fill(edgePath);
 ctx.fillStyle = '#FF4814';
 ctx.fill(hotPath);
-​requestAnimationFrame(animate);
+
+requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 })();
-​// 4. Digital Whiteboard Visual Preview
+
+// 4. Digital Whiteboard Visual Preview
 let boardMode = 'wave';
 function setBoardMode(mode) {
 boardMode = mode;
-document.getElementById('pillWave').classList.toggle('on', mode === 'wave');
-document.getElementById('pillOrbit').classList.toggle('on', mode === 'orbit');
-document.getElementById('boardCaption').textContent = mode === 'wave'
+const pillWave = document.getElementById('pillWave');
+const pillOrbit = document.getElementById('pillOrbit');
+if (pillWave) pillWave.classList.toggle('on', mode === 'wave');
+if (pillOrbit) pillOrbit.classList.toggle('on', mode === 'orbit');
+const caption = document.getElementById('boardCaption');
+if (caption) {
+caption.textContent = mode === 'wave'
 ? 'Visualisasi titik pendekatan kontinu pada papan tulis digital.'
 : 'Pemetaan hubungan antarfungsi dengan grafik bersih tanpa distraksi.';
 }
-​(function runBoardPreview() {
+}
+
+(function runBoardPreview() {
 const c = document.getElementById('boardCanvas');
+if (!c) return;
 const ctx = c.getContext('2d');
-​function draw(now) {
+
+function draw(now) {
 if (Math.abs(smoothProgress - 3) < 1.2) {
 const t = now * 0.0018;
 ctx.clearRect(0, 0, 640, 300);
-​ctx.strokeStyle = 'rgba(247, 244, 237, 0.07)';
+
+ctx.strokeStyle = 'rgba(247, 244, 237, 0.07)';
 ctx.lineWidth = 1;
 ctx.beginPath();
 for (let x = 40; x < 640; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, 300); }
 for (let y = 30; y < 300; y += 30) { ctx.moveTo(0, y); ctx.lineTo(640, y); }
 ctx.stroke();
-​ctx.strokeStyle = 'rgba(247, 244, 237, 0.25)';
+
+ctx.strokeStyle = 'rgba(247, 244, 237, 0.25)';
 ctx.beginPath();
 ctx.moveTo(40, 150); ctx.lineTo(600, 150);
 ctx.moveTo(320, 24); ctx.lineTo(320, 276);
 ctx.stroke();
-​if (boardMode === 'wave') {
+
+if (boardMode === 'wave') {
 ctx.strokeStyle = '#F7F4ED';
 ctx.lineWidth = 2.5;
 ctx.beginPath();
@@ -1386,17 +1489,20 @@ if (px === 60) ctx.moveTo(px, py);
 else ctx.lineTo(px, py);
 }
 ctx.stroke();
-​const focusX = 320 + Math.sin(t * 0.9) * 140;
+
+const focusX = 320 + Math.sin(t * 0.9) * 140;
 const fnx = (focusX - 320) / 90;
 const focusY = 150 - Math.sin(fnx + t * 0.5) * 68 - Math.cos(fnx * 0.6) * 22;
-​ctx.strokeStyle = 'rgba(255, 72, 20, 0.5)';
+
+ctx.strokeStyle = 'rgba(255, 72, 20, 0.5)';
 ctx.setLineDash([4, 4]);
 ctx.beginPath();
 ctx.moveTo(focusX, 150); ctx.lineTo(focusX, focusY);
 ctx.moveTo(320, focusY); ctx.lineTo(focusX, focusY);
 ctx.stroke();
 ctx.setLineDash([]);
-​ctx.fillStyle = '#FF4814';
+
+ctx.fillStyle = '#FF4814';
 ctx.beginPath(); ctx.arc(focusX, focusY, 7, 0, Math.PI * 2); ctx.fill();
 ctx.strokeStyle = '#F7F4ED';
 ctx.lineWidth = 2;
@@ -1412,7 +1518,8 @@ if (px === 110) ctx.moveTo(px, py);
 else ctx.lineTo(px, py);
 }
 ctx.stroke();
-​const vx = 320;
+
+const vx = 320;
 const vy = 215 + Math.sin(t) * 12;
 ctx.fillStyle = '#FF4814';
 ctx.beginPath(); ctx.arc(vx, vy, 7, 0, Math.PI * 2); ctx.fill();
@@ -1422,22 +1529,25 @@ requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
 })();
-​// 5. GPU-Accelerated Cursor Follower
+
+// 5. GPU-Accelerated Cursor Follower
 const ring = document.getElementById('cursorRing');
 window.addEventListener('pointermove', (e) => {
 if (!ring) return;
-ring.style.transform = translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%);
+ring.style.transform = 'translate3d(' + e.clientX + 'px, ' + e.clientY + 'px, 0) translate(-50%, -50%)';
 }, { passive: true });
 document.querySelectorAll('button, .reel, .pillar-card').forEach((el) => {
 el.addEventListener('mouseenter', () => ring && ring.classList.add('expand'));
 el.addEventListener('mouseleave', () => ring && ring.classList.remove('expand'));
 });
-​// 6. Product Reel Switcher
+
+// 6. Product Reel Switcher
 function activateReel(card) {
 document.querySelectorAll('.reel').forEach((c) => c.classList.remove('active'));
 card.classList.add('active');
 }
-​// 7. Policy Drawer
+
+// 7. Policy Drawer
 const DOC_DATA = {
 privacy: {
 tag: 'KEBIJAKAN PRIVASI • RASCADEMY',
@@ -1459,15 +1569,19 @@ items: [
 ]
 }
 };
-​function openDoc(key) {
+
+function openDoc(key) {
 const d = DOC_DATA[key];
+if (!d) return;
 document.getElementById('drawerTag').textContent = d.tag;
 document.getElementById('drawerTitle').textContent = d.title;
-document.getElementById('drawerBody').innerHTML = d.items.map((t) => <p>${t}</p>).join('');
+document.getElementById('drawerBody').innerHTML = d.items.map((t) => '<p>' + t + '</p>').join('');
 document.getElementById('docDrawer').classList.add('open');
 }
+
 function closeDoc() {
-document.getElementById('docDrawer').classList.remove('open');
+const drawer = document.getElementById('docDrawer');
+if (drawer) drawer.classList.remove('open');
 }
 </script>
 </body>
